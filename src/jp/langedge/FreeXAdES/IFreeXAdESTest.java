@@ -9,7 +9,10 @@ public class IFreeXAdESTest {
     //////////////////////////////////////////////////////////////////////////////
     // –¼‘ÎÛ
 
-	private static String testXml_ = "<MyData xmlns=\"\"><Data Id=\"D1\">book</Data><Data Id=\"D2\">note</Data></MyData>";
+	private static String testXml_ = "<MyData xmlns=\"\">"
+			+ "  <Data Id=\"D1\" price=\"680\">‘Ğ</Data>"
+			+ "  <Data price=\"100\" Id=\"D2\">•¶‹ï(ƒm[ƒg)</Data>"
+			+ "</MyData>";
 	private static String testData_ = "aaa";
 	private static String testXmlFile_ = "MyData.xml";
 	private static String testDataFile_ = "aaa.txt";
