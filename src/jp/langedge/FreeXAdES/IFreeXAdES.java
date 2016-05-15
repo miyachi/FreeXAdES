@@ -4,15 +4,23 @@
 
 package jp.langedge.FreeXAdES;
 
+/**
+ * IFreeXAdES : FreeXAdES main interface class.
+ * @author miyachi
+ *
+ */
 public interface IFreeXAdES {
 
 	/** エラー定義.
 	 */
 	// 正常終了はゼロ
-	public static final int FXERR_NO_ERROR			= 0;			///< エラーなし
+	public static final int FXERR_NO_ERROR			= 0;			///< 正常終了（エラーなし）
 	// -100～-999は警告
 	// -1000番台は一般エラー
 	public static final int FXERR_INVALID_ARG		= -1000;		///< 引数エラー
+	public static final int FXERR_FILE_NOTFOUND		= -1001;		///< 指定ファイルが見つからない
+	public static final int FXERR_FILE_READ			= -1002;		///< ファイル読み込みエラー
+	public static final int FXERR_FILE_WRITE		= -1003;		///< ファイル書き込みエラー
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生

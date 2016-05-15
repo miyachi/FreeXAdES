@@ -1,19 +1,30 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 package jp.langedge.FreeXAdES;
 
 import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+/**
+ * IFreeXAdESTest : FreeXAdES JUnit test class.
+ * @author miyachi
+ *
+ */
 public class IFreeXAdESTest {
 
     //////////////////////////////////////////////////////////////////////////////
     // èêñºëŒè€
 
-	private static String testXml_ = "<MyData xmlns=\"\">"
+	private static String testXml_
+			= "<MyData xmlns=\"\">"
 			+ "  <Data Id=\"D1\" price=\"680\">èëê–</Data>"
 			+ "  <Data price=\"100\" Id=\"D2\">ï∂ãÔ(ÉmÅ[Ég)</Data>"
 			+ "</MyData>";
-	private static String testData_ = "aaa";
+	private static String testData_
+			= "aaa";
 	private static String testXmlFile_ = "MyData.xml";
 	private static String testDataFile_ = "aaa.txt";
 

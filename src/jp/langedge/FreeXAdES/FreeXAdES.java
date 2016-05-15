@@ -16,7 +16,7 @@ import org.w3c.dom.*;				// Documentクラス他に利用
 import org.xml.sax.SAXException;
 
 /**
- * FreeXAdES main class.
+ * FreeXAdES : FreeXAdES main implement class.
  * @author miyachi
  *
  */
@@ -45,15 +45,15 @@ public class FreeXAdES implements IFreeXAdES {
 	/* コンストラクタ */
 	public FreeXAdES() {
 		clearLastError();
-		this.signDoc_ = null;
-		this.refs_ = null;
+		signDoc_ = null;
+		refs_ = null;		
 	}
 
 	/* ファイナライズ */
 	public void finalize () {
 		clearLastError();
-		this.signDoc_ = null;
-		this.refs_ = null;		
+		signDoc_ = null;
+		refs_ = null;		
 	}
 	
 	/* --------------------------------------------------------------------------- */
@@ -66,7 +66,7 @@ public class FreeXAdES implements IFreeXAdES {
 		dbf.setNamespaceAware(true);
     	ByteArrayInputStream inStream = new ByteArrayInputStream(xml);
 		try {
-			this.signDoc_ = dbf.newDocumentBuilder().parse(inStream);
+			signDoc_ = dbf.newDocumentBuilder().parse(inStream);
 		} catch (IOException e) {
 			e.printStackTrace();
 			rc = setLastError(FXERR_IO_EXCEPTION);
@@ -82,8 +82,29 @@ public class FreeXAdES implements IFreeXAdES {
 		int rc = FXERR_NO_ERROR;
 		switch(fxaType) {
 		case IFreeXAdES.FXAT_FILE_PATH:
+			// ファイルからの読み込み
+			File inFile = new File(target);
+			FileInputStream fis = null;
+			try {
+				fis = new FileInputStream(inFile);
+			} catch (FileNotFoundException e1) {
+				e1.printStackTrace();
+				return setLastError(FXERR_FILE_NOTFOUND);
+			}
+			BufferedInputStream bis = new BufferedInputStream(fis);
+	    	byte[] rbuff = null;
+			try {
+				rbuff = new byte[bis.available()];
+				bis.read(rbuff);
+				bis.close();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+				return setLastError(FXERR_FILE_READ);
+			}
+			rc = setXml(rbuff);
 			break;
 		case IFreeXAdES.FXAT_XML_STRING:
+			// 文字列からの読み込み
 			try {
 				byte[] utf8 = target.getBytes("UTF-8");
 				rc = setXml(utf8);
@@ -93,6 +114,8 @@ public class FreeXAdES implements IFreeXAdES {
 			}
 			break;
 		default:
+			// 引数エラー
+			rc = setLastError(FXERR_INVALID_ARG);
 			break;
 		}
 		return rc;
