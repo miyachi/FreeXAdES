@@ -11,7 +11,8 @@ public class IFreeXAdESTest {
 
 	private static String testXml_ = "<MyData xmlns=\"\"><Data Id=\"D1\">book</Data><Data Id=\"D2\">note</Data></MyData>";
 	private static String testData_ = "aaa";
-	private static String testFile_ = "test.txt";
+	private static String testXmlFile_ = "MyData.xml";
+	private static String testDataFile_ = "aaa.txt";
 
     //////////////////////////////////////////////////////////////////////////////
 	// èêñºópPKCS#12ê›íË
