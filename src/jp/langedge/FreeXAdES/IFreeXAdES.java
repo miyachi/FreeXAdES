@@ -4,6 +4,8 @@
 
 package jp.langedge.FreeXAdES;
 
+import javax.xml.crypto.dsig.DigestMethod;
+
 /**
  * IFreeXAdES : FreeXAdES main interface class.
  * @author miyachi
@@ -18,9 +20,21 @@ public interface IFreeXAdES {
 	// -100～-999は警告
 	// -1000番台は一般エラー
 	public static final int FXERR_INVALID_ARG		= -1000;		///< 引数エラー
-	public static final int FXERR_FILE_NOTFOUND		= -1001;		///< 指定ファイルが見つからない
-	public static final int FXERR_FILE_READ			= -1002;		///< ファイル読み込みエラー
-	public static final int FXERR_FILE_WRITE		= -1003;		///< ファイル書き込みエラー
+	public static final int FXERR_NOT_INIT			= -1000;		///< 初期化エラー
+	public static final int FXERR_FILE_NOTFOUND		= -1010;		///< 指定ファイルが見つからない
+	public static final int FXERR_FILE_READ			= -1011;		///< ファイル読み込みエラー
+	public static final int FXERR_FILE_WRITE		= -1012;		///< ファイル書き込みエラー
+	public static final int FXERR_XML_MARSHAL		= -1020;		///< XMLマーシャリングエラー
+	// -2000番台は証明書/鍵のエラー
+	public static final int FXERR_PKI_UNK_ALG		= -2000;		///< 不明アルゴリズムが使われた
+	public static final int FXERR_PKI_INVALID_ALG	= -2001;		///< アルゴリズムパラメーターが異常
+	public static final int FXERR_PKI_CERT			= -2002;		///< 証明書エラー
+	public static final int FXERR_PKI_KEY			= -2003;		///< 公開鍵エラー
+	public static final int FXERR_PKI_KEY_STORE		= -2004;		///< 鍵ストアエラー
+	public static final int FXERR_PKI_SIGN			= -2005;		///< 署名実行時のエラー
+	public static final int FXERR_PKI_CONFIG		= -2006;		///< コンフィギュレーションエラー
+	// -3000番台はFreeXAdESのエラー
+	public static final int FXERR_NO_REFS			= -3000;		///< Reference設定が無い
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生
@@ -36,6 +50,17 @@ public interface IFreeXAdES {
 		= "http://uri.etsi.org/01903/v1.4.1#";			// ETSI TS 101 903 V1.4.1
 	public static String XADES_V132
 		= "http://uri.etsi.org/01903/v1.3.2#";			// ETSI TS 101 903 V1.3.2
+	
+	/** XML署名 SHA-2 定義.
+	 */
+	public static String SIGN_RSA_SHA256
+		= "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";	// RSA-SHA256
+	public static String SIGN_RSA_SHA384
+		= "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384";	// RSA-SHA384
+	public static String SIGN_RSA_SHA512
+		= "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";	// RSA-SHA512
+	public static String HASH_SHA384
+		= "http://www.w3.org/2001/04/xmlenc#sha384";			// SHA-384
 	
 	/* --------------------------------------------------------------------------- */
 
@@ -188,10 +213,11 @@ public interface IFreeXAdES {
 	 * @param p12pswd 署名に利用するPKCS#12パスワードの指定
 	 * @param fxsFlag 署名時のフラグ指定（通常は 0:FXSF_NONE で良い）
 	 * @param id Signature要素に付けるIdの指定（nullにて省略可能）
+	 * @param xpath 内部Detachedの場合にSignature要素を追加する場所を指定（nullならルート要素下）
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
-	public int execSign(String p12file, String p12pswd, int fxsFlag, String id);
+	public int execSign(String p12file, String p12pswd, int fxsFlag, String id, String xpath);
 
 	/* --------------------------------------------------------------------------- */
 	/* 検証処理 */
@@ -231,6 +257,12 @@ public interface IFreeXAdES {
 	 * @param rootDir 基点となるルートディレクトリのパスを指定（"/"で終端させる）
 	 */
 	public void setRootDir(String rootDir);
+	
+	/** ハッシュ計算/署名計算時に使われるハッシュアルゴリズムを指定
+	 * 省略時には DigestMethod.SHA256 が使われる。
+	 * @param hashAlg DigestMethod を指定
+	 */
+	public void setHashAlg(String hashAlg);
 	
 	/** 最後のエラー値を取得
 	 * @return エラーなし FXERR_NO_ERROR が返る
