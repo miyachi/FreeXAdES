@@ -226,6 +226,12 @@ public interface IFreeXAdES {
 	/* --------------------------------------------------------------------------- */
 	/* 補助 */
 
+	/** URIの基点となるルートディレクトリを指定
+	 * URI指定される外部ファイルのDetached等で利用される。
+	 * @param rootDir 基点となるルートディレクトリのパスを指定（"/"で終端させる）
+	 */
+	public void setRootDir(String rootDir);
+	
 	/** 最後のエラー値を取得
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）

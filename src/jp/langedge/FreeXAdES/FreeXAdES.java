@@ -26,6 +26,7 @@ public class FreeXAdES implements IFreeXAdES {
 	 */
 	private Document signDoc_ = null;						// メインドキュメント
 	private List<Reference> refs_ = null;
+	private String rootDir_ = null;
 	
 	/** エラー対応
 	 */
@@ -205,6 +206,11 @@ public class FreeXAdES implements IFreeXAdES {
 	/* 検証結果XMLからエラーを取得 */
 	public int[] getVerifiedErrors(byte[] verifiedXml) {
 		return null;
+	}
+
+	@Override
+	/* URIの基点となるルートディレクトリを指定 */
+	public void setRootDir(String rootDir) {
 	}
 	
 	/* --------------------------------------------------------------------------- */
