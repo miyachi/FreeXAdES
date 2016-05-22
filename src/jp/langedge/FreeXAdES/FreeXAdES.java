@@ -5,10 +5,14 @@
 package jp.langedge.FreeXAdES;
 
 import java.io.*;
+import java.math.BigInteger;
+import java.util.*;
 import java.security.*;
 import java.security.cert.*;
-import java.security.cert.Certificate;
-import java.util.*;
+import java.security.cert.Certificate;	// 明示する為にインポート
+import java.text.SimpleDateFormat;
+
+import javax.security.cert.X509Certificate;
 import javax.xml.crypto.*;
 import javax.xml.crypto.dom.*;
 import javax.xml.crypto.dsig.*;
@@ -20,10 +24,7 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.*;
 import javax.xml.transform.stream.*;
 import javax.xml.xpath.*;
-
 import org.w3c.dom.*;				// Documentクラス他に利用
-import org.xml.sax.SAXException;
-//import org.xml.sax.SAXException;
 
 /**
  * FreeXAdES : FreeXAdES main implement class.
@@ -40,18 +41,6 @@ public class FreeXAdES implements IFreeXAdES {
 	private List<Reference> refs_ = null;					// 参照
 	private List<XMLObject> objs_ = null;					// オブジェクト
 	private String rootDir_ = null;							// ベースになるルートディレクトリ
-	
-	/** エラー対応
-	 */
-	private	int lastError_ = FXERR_NO_ERROR;				// 最後のエラー値を保持
-	public int getLastError() { return lastError_; }		// 最後のエラー値を取得
-	public void clearLastError() {							// 最後のエラー値をクリア
-		lastError_ = FXERR_NO_ERROR;
-	}
-	private int setLastError(int fxerr) {					// エラー値セット(内部用)
-		lastError_ = fxerr;
-		return fxerr;
-	}
 	
 	/* --------------------------------------------------------------------------- */
 	/* コンストラクタ等 */
@@ -94,9 +83,9 @@ public class FreeXAdES implements IFreeXAdES {
 		} catch (IOException e) {
 			e.printStackTrace();
 			rc = setLastError(FXERR_IO_EXCEPTION);
-		} catch (Exception e) {	// SAXException, ParserConfigurationException
+		} catch (Exception e) {
 			e.printStackTrace();
-			rc = setLastError(FXERR_EXCEPTION);
+			rc = setLastError(FXERR_XML_PARSE);
 		}
 		return rc;		
 	}
@@ -118,7 +107,20 @@ public class FreeXAdES implements IFreeXAdES {
 	/* 署名済みXMLを取得する */
 	@Override
 	public byte[] getXml() {
-		return null;		
+		byte[] xml = null;
+		try {
+			ByteArrayOutputStream bs = new ByteArrayOutputStream();
+			TransformerFactory tff = TransformerFactory.newInstance();
+			Transformer tf = tff.newTransformer();
+			tf.transform(new DOMSource(signDoc_), new StreamResult(bs));
+			xml = bs.toByteArray();
+			if(xml == null)
+				setLastError(FXERR_XML_GET);
+		} catch (Exception e) {
+			e.printStackTrace();
+			setLastError(FXERR_XML_GET);
+		}
+		return xml;		
 	}
 
 	/* 署名済みXMLをファイル保存する */
@@ -139,10 +141,7 @@ public class FreeXAdES implements IFreeXAdES {
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 			rc = FXERR_FILE_NOTFOUND;
-		} catch (TransformerConfigurationException e) {
-			e.printStackTrace();
-			rc = FXERR_FILE_WRITE;
-		} catch (TransformerException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 			rc = FXERR_FILE_WRITE;
 		}
@@ -155,10 +154,13 @@ public class FreeXAdES implements IFreeXAdES {
 		String xml = null;
 		try {
 			byte[] utf8 = getXml();
-			xml = new String(utf8, "UTF-8");
+			if(utf8 != null)
+				xml = new String(utf8, "UTF-8");
+			if(xml == null)
+				setLastError(FXERR_XML_CONV);
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
-			setLastError(FXERR_EXCEPTION);
+			setLastError(FXERR_XML_CONV);
 		}
 		return xml;		
 	}
@@ -172,49 +174,78 @@ public class FreeXAdES implements IFreeXAdES {
 		int rc = FXERR_NO_ERROR;
 		DigestMethod dm = getDigestMethod();
 		List<Transform> trForms = null;
-		try {
-			switch(fxaType) {
-			case FXAT_FILE_PATH:
-				if((fxrFlag & FXRF_TRANS_C14N) != 0) {
-					trForms = new ArrayList<Transform>();
-					String canon = CanonicalizationMethod.INCLUSIVE;
-					Transform tr = sigFact_.newCanonicalizationMethod(canon, (C14NMethodParameterSpec)null);
-					trForms.add(tr);
-				} else if((fxrFlag & FXRF_TRANS_C14N_EX) != 0) {
-					trForms = new ArrayList<Transform>();
-					String canon = CanonicalizationMethod.EXCLUSIVE;
-					Transform tr = sigFact_.newCanonicalizationMethod(canon, (C14NMethodParameterSpec)null);
-					trForms.add(tr);					
-				}
-				break;
-			case FXAT_XML_ID:
-				break;
-			default:
-				rc = FXERR_INVALID_ARG;
-				break;
+		byte[] hash = null;
+
+		switch(fxaType) {
+		case FXAT_FILE_PATH:
+			// 外部ファイル
+			int flagMask = FXRF_TRANS_C14N | FXRF_TRANS_C14N_EX;
+			if((fxrFlag & flagMask) != 0) {
+				// C14N/C14N_EXの指定があった
+				trForms = new ArrayList<Transform>();
+				Transform c14n = getCanonicalMethod(fxrFlag);
+				if(c14n == null)
+					return getLastError();
+				trForms.add(c14n);
 			}
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-			rc = FXERR_PKI_UNK_ALG;
-		} catch (InvalidAlgorithmParameterException e) {
-			e.printStackTrace();
-			rc = FXERR_PKI_INVALID_ALG;
+			break;
+		case FXAT_XML_ID:
+			// ID参照（うまく動作しないので自前でId要素を探しC14N正規化とハッシュ計算している）
+			try {
+				// 名前空間に依存しない為にXPathで検索
+				XPathFactory xpf = XPathFactory.newInstance();
+				XPath xp = xpf.newXPath();
+				String xpath = "//*[@Id='" + target.substring(1) + "']";
+				XPathExpression expr = xp.compile(xpath);
+				Element elmt = (Element)expr.evaluate(signDoc_, XPathConstants.NODE);
+				if(elmt == null)
+					return setLastError(FXERR_ID_NOTFOUND);
+				byte[] c14n = getC14N(elmt, fxrFlag);
+				if(c14n == null)
+					return getLastError();
+				hash = getHash(c14n);
+				if(hash == null)
+					return getLastError();
+			} catch (XPathExpressionException e) {
+				e.printStackTrace();
+				rc = FXERR_XML_XPATH;
+			}
+			if(hash == null)
+				rc = FXERR_PKI_HASH;
+			break;
+		default:
+			rc = FXERR_INVALID_ARG;
+			break;
 		}
+
 		if(rc != FXERR_NO_ERROR)
 			return setLastError(rc);
 
-		Reference ref = sigFact_.newReference(target, dm, trForms, null, null);
-		if(refs_ == null) {
-			refs_ = new ArrayList<Reference>();
+		Reference ref = null;
+		if(hash != null) {
+			// ハッシュ計算済み
+			ref = sigFact_.newReference(target, dm, trForms, null, null, hash);
+		} else {
+			// ハッシュ計算は署名時に行う
+			ref = sigFact_.newReference(target, dm, trForms, null, null);			
 		}
+		if(refs_ == null)
+			refs_ = new ArrayList<Reference>();
 		refs_.add(ref);
 		return rc;
 	}
-
+	
 	/* Enveloping(内部)署名対象の追加 */
 	@Override
-	public int addEnveloping(String target, int fxaType, int fxrFlag) {
+	public int addEnveloping(String target, int fxaType, int fxrFlag, String id) {
 		int rc = FXERR_NO_ERROR;
+		String Id = id;
+		if(Id == null) {
+			if(objs_ == null)
+				Id = "Eping-Obj-0";
+			else
+				Id = "Eping-Obj-" + String.valueOf(objs_.size());
+		}
 		DigestMethod dm = getDigestMethod();
 		List<Transform> trForms = null;
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -222,28 +253,21 @@ public class FreeXAdES implements IFreeXAdES {
 			int flagMask = FXRF_TRANS_C14N | FXRF_TRANS_C14N_EX;
 			if(fxaType == FXAT_XML_STRING || (fxrFlag & flagMask) != 0) {
 				// XML
-				if((fxrFlag & FXRF_TRANS_C14N_EX) != 0) {
-					// C14N:EXCLUSIVE
-					trForms = new ArrayList<Transform>();
-					String canon = CanonicalizationMethod.EXCLUSIVE;
-					Transform tr = sigFact_.newCanonicalizationMethod(canon, (C14NMethodParameterSpec)null);
-					trForms.add(tr);
-				} else {
-					// C14N:INCLUSIVE
-					trForms = new ArrayList<Transform>();
-					String canon = CanonicalizationMethod.INCLUSIVE;
-					Transform tr = sigFact_.newCanonicalizationMethod(canon, (C14NMethodParameterSpec)null);
-					trForms.add(tr);					
-				}
+				trForms = new ArrayList<Transform>();
+				Transform c14n = getCanonicalMethod(fxrFlag);
+				if(c14n == null)
+					return getLastError();
+				trForms.add(c14n);
 				byte[] xml = getBinary(target, fxaType);
+				if(xml == null)
+					return getLastError();
 				ByteArrayInputStream inStream = new ByteArrayInputStream(xml);
 				Document doc = dbf.newDocumentBuilder().parse(inStream);
 				Element element = doc.getDocumentElement();
 				XMLStructure content = new DOMStructure(element);
-				XMLObject obj = sigFact_.newXMLObject(Collections.singletonList(content), "MyObj", null, null);
-				if(objs_ == null) {
+				XMLObject obj = sigFact_.newXMLObject(Collections.singletonList(content), Id, null, null);
+				if(objs_ == null)
 					objs_ = new ArrayList<XMLObject>();
-				}
 				objs_.add(obj);
 			} else {
 				// DATA
@@ -252,21 +276,26 @@ public class FreeXAdES implements IFreeXAdES {
 				if((fxrFlag & FXRF_TRANS_BASE64) != 0) {
 					// Base64化する
 					trForms = new ArrayList<Transform>();
-					String canon = CanonicalizationMethod.INCLUSIVE;
-					Transform tr = sigFact_.newCanonicalizationMethod(canon, (C14NMethodParameterSpec)null);
+					Transform tr = sigFact_.newTransform(Transform.BASE64, (TransformParameterSpec)null);
 					trForms.add(tr);
 					String base64 = Base64.getEncoder().encodeToString(data);
 					Node text = doc.createTextNode(base64);
 					XMLStructure content = new DOMStructure(text);
 					String mimeType = "text/plain";
 					String Encoding = "http://www.w3.org/2000/09/xmldsig#base64";
-					XMLObject obj = sigFact_.newXMLObject(Collections.singletonList(content), "MyObj", mimeType, Encoding);
-					if(objs_ == null) {
+					XMLObject obj = sigFact_.newXMLObject(Collections.singletonList(content), Id, mimeType, Encoding);
+					if(objs_ == null)
 						objs_ = new ArrayList<XMLObject>();
-					}
 					objs_.add(obj);
 				} else {
 					// Base64化しない
+					Node text = doc.createTextNode(new String(data, "UTF-8"));
+					XMLStructure content = new DOMStructure(text);
+					String mimeType = "text/plain";
+					XMLObject obj = sigFact_.newXMLObject(Collections.singletonList(content), Id, mimeType, null);
+					if(objs_ == null)
+						objs_ = new ArrayList<XMLObject>();
+					objs_.add(obj);
 				}
 			}
 		} catch (NoSuchAlgorithmException e) {
@@ -275,36 +304,40 @@ public class FreeXAdES implements IFreeXAdES {
 		} catch (InvalidAlgorithmParameterException e) {
 			e.printStackTrace();
 			rc = FXERR_PKI_INVALID_ALG;
-		} catch (SAXException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} catch (ParserConfigurationException e) {
-			// TODO Auto-generated catch block
+			rc = FXERR_IO_EXCEPTION;
+		} catch (Exception e) {
 			e.printStackTrace();
+			rc = FXERR_EXCEPTION;
 		}
 		if(rc != FXERR_NO_ERROR)
 			return setLastError(rc);
 
-		Reference ref = sigFact_.newReference("#MyObj", dm, trForms, null, null);
-		if(refs_ == null) {
+		String refId = "#" + Id;
+		String type = OBJECT_URI;
+		Reference ref = sigFact_.newReference(refId, dm, trForms, type, null);
+		if(refs_ == null)
 			refs_ = new ArrayList<Reference>();
-		}
 		refs_.add(ref);
 		return rc;
 	}
 
 	/* Enveloped(内包)署名対象の追加 */
 	@Override
-	public int addEnveloped(String target, int fxaType, String xpath) {
+	public int addEnveloped(String target, int fxaType, int fxrFlag, String xpath) {
 		int rc = FXERR_NO_ERROR;
 		DigestMethod dm = getDigestMethod();
 		List<Transform> trForms = new ArrayList<Transform>();
 		try {
-			Transform trans = sigFact_.newTransform(Transform.ENVELOPED, (TransformParameterSpec)null);
-			trForms.add(trans);
+			// Enveloped指定
+			Transform eped = sigFact_.newTransform(Transform.ENVELOPED, (TransformParameterSpec)null);
+			trForms.add(eped);
+			// C14N正規化指定
+			Transform c14n = getCanonicalMethod(fxrFlag);
+			if(c14n == null)
+				return getLastError();
+			trForms.add(c14n);
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 			rc = FXERR_PKI_UNK_ALG;
@@ -313,40 +346,12 @@ public class FreeXAdES implements IFreeXAdES {
 			rc = FXERR_PKI_INVALID_ALG;
 		}
 		Reference ref = sigFact_.newReference("", dm, trForms, null, null);
-		if(refs_ == null) {
+		if(refs_ == null)
 			refs_ = new ArrayList<Reference>();
-		}
 		refs_.add(ref);
 		return rc;
 	}
 
-	/* --------------------------------------------------------------------------- */
-
-	/* ハッシュ方式 */
-	private DigestMethod getDigestMethod() {
-		DigestMethod dm = null;
-		try {
-			if(hashAlg_ == null || hashAlg_ == SIGN_RSA_SHA256) {
-				dm = sigFact_.newDigestMethod(DigestMethod.SHA256, null);
-			} else if(hashAlg_ == SIGN_RSA_SHA384) {
-				dm = sigFact_.newDigestMethod(HASH_SHA384, null);
-			} else if(hashAlg_ == SIGN_RSA_SHA512) {
-				dm = sigFact_.newDigestMethod(DigestMethod.SHA512, null);
-			} else if(hashAlg_ == SignatureMethod.RSA_SHA1) {
-				dm = sigFact_.newDigestMethod(DigestMethod.SHA1, null);		// 非推奨
-			} else {
-				setLastError(FXERR_PKI_UNK_ALG);
-			}
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-			setLastError(FXERR_PKI_UNK_ALG);
-		} catch (InvalidAlgorithmParameterException e) {
-			e.printStackTrace();
-			setLastError(FXERR_PKI_INVALID_ALG);
-		}
-		return dm;
-	}
-	
 	/* --------------------------------------------------------------------------- */
 	/* 署名処理 */
 
@@ -355,12 +360,12 @@ public class FreeXAdES implements IFreeXAdES {
 	public int execSign(String p12file, String p12pswd, int fxsFlag, String id, String xpath) {
 		int rc = FXERR_NO_ERROR;
 
-		if(refs_ == null)
-			return setLastError(FXERR_NO_REFS);
+        String sigId = id;
+        if(sigId == null)
+        	sigId = "Signature1";
 
-		if((fxsFlag & FXSF_NO_XADES_OBJ) != 0) {
-			// XAdESのオブジェクトと参照を追加
-		}
+        if(refs_ == null)
+			return setLastError(FXERR_NO_REFS);
 
 		// PKCS#12ファイルから証明書と秘密鍵を取得
 		String path = getPath(p12file);
@@ -393,7 +398,7 @@ public class FreeXAdES implements IFreeXAdES {
 			rc = FXERR_FILE_NOTFOUND;
 		} catch (IOException e1) {
 			e1.printStackTrace();
-			rc = FXERR_FILE_READ;
+			rc = FXERR_IO_EXCEPTION;
 		} catch (NoSuchAlgorithmException e1) {
 			e1.printStackTrace();
 			rc = FXERR_PKI_UNK_ALG;
@@ -412,6 +417,13 @@ public class FreeXAdES implements IFreeXAdES {
 		if(cert == null || pubKey == null || privKey == null)
 			return setLastError(FXERR_ERROR);
 		
+		if((fxsFlag & FXSF_NO_XADES_OBJ) == 0) {
+			// XAdESのオブジェクトと参照を追加
+			rc = addXadesObject(sigId, cert, fxsFlag);
+			if(rc != FXERR_NO_ERROR)
+				return rc;
+		}
+
 		try {
 			// ドキュメントの準備
 			Node parent = null;
@@ -432,9 +444,12 @@ public class FreeXAdES implements IFreeXAdES {
 						parent = (Node)expr.evaluate(signDoc_, XPathConstants.NODE);
 					} catch (XPathExpressionException e) {
 						e.printStackTrace();
-					}	
+						return setLastError(FXERR_XML_XPATH);
+					}
 				}
 			}
+			if(parent == null)
+				return setLastError(FXERR_XML_PARENT);
 			
 			// KeyValue生成とKeyInfoを作成してセット
 			KeyInfoFactory kif = sigFact_.getKeyInfoFactory();
@@ -443,33 +458,21 @@ public class FreeXAdES implements IFreeXAdES {
 			List<XMLStructure> kis = new ArrayList<XMLStructure>();
 			kis.add(keyValue);
 			kis.add(certs);
-			KeyInfo keyInfo = kif.newKeyInfo(kis, "MyKeyInfoId");
+			String keyId = id;
+			if(keyId != null)
+				keyId = keyId + "-key";
+			KeyInfo keyInfo = kif.newKeyInfo(kis, keyId);
 
 			// SignedInfoを生成する
-			CanonicalizationMethod cm = null;
-			if((fxsFlag & FXRF_TRANS_C14N_EX) != 0) {
-				cm = sigFact_.newCanonicalizationMethod(CanonicalizationMethod.EXCLUSIVE, (C14NMethodParameterSpec)null);
-			} else {
-				cm = sigFact_.newCanonicalizationMethod(CanonicalizationMethod.INCLUSIVE, (C14NMethodParameterSpec)null);
-			}
-			SignatureMethod sm = null;
-			if(hashAlg_ == null || hashAlg_ == SIGN_RSA_SHA256) {
-				sm = sigFact_.newSignatureMethod(SIGN_RSA_SHA256, null);				
-			} else if(hashAlg_ == SIGN_RSA_SHA384) {
-				sm = sigFact_.newSignatureMethod(SIGN_RSA_SHA384, null);				
-			} else if(hashAlg_ == SIGN_RSA_SHA512) {
-				sm = sigFact_.newSignatureMethod(SIGN_RSA_SHA512, null);				
-			} else if(hashAlg_ == SignatureMethod.RSA_SHA1) {
-				sm = sigFact_.newSignatureMethod(SignatureMethod.RSA_SHA1, null);	// 非推奨
-			} else {
-				return setLastError(FXERR_PKI_UNK_ALG);
-			}
+			CanonicalizationMethod cm = getCanonicalMethod(fxsFlag);
+			if(cm == null)
+				return getLastError();
+			SignatureMethod sm = getSignatureMethod();
+			if(sm == null)
+				return getLastError();
 			SignedInfo signedInfo = sigFact_.newSignedInfo(cm, sm, refs_);
 
 			// Signature要素を作成
-	        String sigId = id;
-	        if(sigId == null)
-	        	sigId = "Signature1";
 			XMLSignature signature = sigFact_.newXMLSignature(signedInfo, keyInfo, objs_, sigId, null);
 
 			// DOM用署名情報をセット
@@ -498,12 +501,6 @@ public class FreeXAdES implements IFreeXAdES {
 		} catch (XMLSignatureException e) {
 			e.printStackTrace();
 			rc = FXERR_PKI_SIGN;
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-			rc = FXERR_PKI_UNK_ALG;
-		} catch (InvalidAlgorithmParameterException e) {
-			e.printStackTrace();
-			rc = FXERR_PKI_INVALID_ALG;
 		} catch (KeyException e) {
 			e.printStackTrace();
 			rc = FXERR_PKI_KEY;
@@ -514,27 +511,279 @@ public class FreeXAdES implements IFreeXAdES {
 		return rc;
 	}
 
-	/* --------------------------------------------------------------------------- */
-	/* 検証処理 */
-
-	/* 署名を検証する */
-	@Override
-	public byte[] verifySign(int fxvFlag, String xpath) {
-		return null;
-	}
-
-	/* 検証結果XMLから署名検証結果ステータスを取得 */
-	@Override
-	public int getVerifiedStatus(byte[] verifiedXml) {
+	/* XAdESオブジェクトの追加 */
+	private int addXadesObject(String id, Certificate cert, int fxsFlag) {
 		int rc = FXERR_NO_ERROR;
+		if(id == null)
+			return setLastError(FXERR_INVALID_ARG);
+		String objId = id + "-XAdES-Obj";
+		String xadesId = id + "-XAdES-SignProp";
+		DigestMethod dm = getDigestMethod();
+		List<Transform> trForms = null;
+//		byte[] hash = new byte[32];
+		byte[] hash = null;
+		try {
+			// XML
+			trForms = new ArrayList<Transform>();
+			Transform c14n = getCanonicalMethod(fxsFlag);
+			if(c14n == null)
+				return getLastError();
+			trForms.add(c14n);
+			// Object生成
+	        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+			dbf.setNamespaceAware(true);
+			Document doc = dbf.newDocumentBuilder().newDocument();
+			Element element = makeXadesObjectElement(doc, id, xadesId, cert, fxsFlag);
+			// ハッシュ計算
+			NodeList list = element.getElementsByTagNameNS(XADES_V132, "SignedProperties");
+			if(list == null || list.getLength() <= 0)
+				return setLastError(FXERR_XML_NOTFOUND);
+			Element target = (Element)list.item(0);
+			byte[] c14nBin = getC14N(target, fxsFlag);
+			if(c14nBin == null)
+				return getLastError();
+			hash = getHash(c14nBin);
+			if(hash == null)
+				return getLastError();
+			// Object追加
+			XMLStructure content = new DOMStructure(element);
+			XMLObject obj = sigFact_.newXMLObject(Collections.singletonList(content), objId, null, null);
+			if(objs_ == null)
+				objs_ = new ArrayList<XMLObject>();
+			objs_.add(0, obj);
+		} catch (Exception e) {
+			e.printStackTrace();
+			rc = FXERR_EXCEPTION;
+		}
+		if(rc != FXERR_NO_ERROR)
+			return setLastError(rc);
+
+		String refId = "#" + xadesId;
+		String type = XADES_SIGN_PROP;
+		Reference ref = sigFact_.newReference(refId, dm, trForms, type, null, hash);
+		if(refs_ == null)
+			refs_ = new ArrayList<Reference>();
+		refs_.add(ref);
 		return rc;
 	}
 
-	/* 検証結果XMLからエラーを取得 */
-	@Override
-	public int[] getVerifiedErrors(byte[] verifiedXml) {
-		return null;
+	/* XAdESオブジェクト要素の生成 */
+	private Element makeXadesObjectElement(Document doc, String id, String xadesId, Certificate cert, int fxsFlag) {
+		Element content = null;
+		Element root = doc.createElementNS(XADES_V132, "QualifyingProperties");
+		root.setAttribute("Target", "#" + id);
+		Element sp = doc.createElementNS(XADES_V132, "SignedProperties");
+		sp.setAttribute("Id", xadesId);
+		Element ssp = doc.createElementNS(XADES_V132, "SignedSignatureProperties");
+		Element sc = makeSigningCertificate(doc, ssp, cert);
+		ssp.appendChild(sc);
+		if((fxsFlag & FXSF_NO_SIGN_TIME) == 0) {
+			Element st = makeSigningTime(doc, ssp);
+			ssp.appendChild(st);			
+		}
+		sp.appendChild(ssp);
+		root.appendChild(sp);
+		doc.appendChild(root);
+		content = doc.getDocumentElement();
+
+        return content;
 	}
+	
+	/* XAdESオブジェクト要素の生成 */
+	private Element makeSigningCertificate(Document doc, Element parent, Certificate cert) {
+		Element st = null;
+		try {
+			st = doc.createElementNS(XADES_V132, "SigningCertificate");
+			Element ct = doc.createElementNS(XADES_V132, "Cert");
+			// CertDigest
+			Element cd = doc.createElementNS(XADES_V132, "CertDigest");
+			DigestMethod dm = getDigestMethod();
+			Element dme = doc.createElementNS(XMLSignature.XMLNS, "DigestMethod");
+			dme.setAttribute("Algorithm", dm.getAlgorithm());
+			cd.appendChild(dme);
+			Element dve = doc.createElementNS(XMLSignature.XMLNS, "DigestValue");
+			byte[] certBin = cert.getEncoded();
+			byte[] hash = getHash(certBin);
+			String base64 = Base64.getEncoder().encodeToString(hash);
+			Node hashText = doc.createTextNode(base64);
+			dve.appendChild(hashText);
+			cd.appendChild(dve);
+			ct.appendChild(cd);
+			// IssuerSerial
+			Element is = doc.createElementNS(XADES_V132, "IssuerSerial");
+			Element in = doc.createElementNS(XMLSignature.XMLNS, "X509IssuerName");
+			X509Certificate x509cert = X509Certificate.getInstance(certBin);
+			String issuer = x509cert.getIssuerDN().getName();
+			Node issText = doc.createTextNode(issuer);
+			in.appendChild(issText);
+			is.appendChild(in);
+			Element sn = doc.createElementNS(XMLSignature.XMLNS, "X509SerialNumber");
+			BigInteger snum = x509cert.getSerialNumber();
+			String serial = snum.toString();
+			Node serText = doc.createTextNode(serial);
+			sn.appendChild(serText);
+			is.appendChild(sn);
+			ct.appendChild(is);
+			st.appendChild(ct);
+		} catch (javax.security.cert.CertificateException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_CERT);
+		} catch (CertificateEncodingException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_CERT);
+		}
+        return st;
+	}
+	
+	/* XAdESオブジェクト要素の生成 */
+	private Element makeSigningTime(Document doc, Element parent) {
+		Element st = null;
+		st = doc.createElementNS(XADES_V132, "SigningTime");
+		Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+		df.setTimeZone(cal.getTimeZone());
+		String sigTime = df.format(cal.getTime());
+		Node timeText = doc.createTextNode(sigTime);
+		st.appendChild(timeText);
+		return st;
+	}
+	
+	/* --------------------------------------------------------------------------- */
+	/* 検証処理 */
+
+	/* 署名を検証する（仮） */
+	@Override
+	public int verifySign(int fxvFlag, String xpath) {
+		// FXVS_VALID / FXVS_INVALID / FXVS_NO_SIGN
+		int rc = FXVS_NO_SIGN;
+
+		// Signature要素を探す
+		NodeList nl = signDoc_.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
+		if (nl.getLength() == 0)
+		{
+			// Signature要素が見つからない
+            return rc;
+		}
+
+		for(int i=0; i<nl.getLength(); i++)
+		{
+			try {
+				// 検証対象と鍵取得クラスを取得
+				Node target = nl.item(i);
+				DOMValidateContext valContext = new DOMValidateContext(new KeyValueKeySelector(), target);
+				
+				// 現在位置をセット(外部Detached用)
+				String dir = rootDir_;
+				if(dir == null)
+					dir = ".";
+				String cpath = new File(dir).getCanonicalPath();
+				cpath = "file:///" + cpath.replace('\\', '/') + "/";
+				valContext.setBaseURI(cpath);
+
+				// XML から XMLSignature を非整列化する
+				XMLSignature signature = sigFact_.unmarshalXMLSignature(valContext);
+
+				// 検証実行
+				boolean coreValidity = false;
+				try {
+					coreValidity = signature.validate(valContext);
+				} catch(XMLSignatureException e) {
+//					e.printStackTrace();					
+				}
+
+				if (coreValidity == false) {
+					// 検証失敗
+					boolean sigVerify = signature.getSignatureValue().validate(valContext);
+					if(sigVerify == false) {
+						rc = FXVS_INVALID;
+					} else {
+						// ToDo: 内部DetachedはおそらくIdが見つからないようだ。
+						// Reference先をチェック
+						/*
+						Iterator<Reference> it = signature.getSignedInfo().getReferences().iterator();
+						for (int j = 0; it.hasNext(); j++)
+						{
+							boolean refValid = (it.next()).validate(valContext);
+							System.out.println(" Reference[" + j + "] validity status: " + refValid);
+						}
+						*/
+						rc = FXVS_VALID;
+					}
+				} else {
+					// 検証成功
+					rc = FXVS_VALID;
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				rc = FXVS_INVALID;
+			} catch (XMLSignatureException e) {
+				e.printStackTrace();
+				rc = FXVS_INVALID;
+			} catch (Exception e) {
+				e.printStackTrace();
+				rc = FXVS_INVALID;
+			}
+		}		
+		
+		return rc;
+	}
+
+    // ---------------------------------------------------------------------------
+    // 検証用の鍵取得クラス（最もシンプルな実装）
+	public static class KeyValueKeySelector extends KeySelector
+	{
+		@SuppressWarnings("unchecked")
+		public KeySelectorResult select(
+				KeyInfo keyInfo,
+				KeySelector.Purpose purpose,
+				AlgorithmMethod method,
+				XMLCryptoContext context) throws KeySelectorException
+		{
+			List<XMLStructure> list = keyInfo.getContent();
+
+			for (int i = 0; i < list.size(); i++)
+			{
+				XMLStructure xmlStructure = list.get(i);
+				if (xmlStructure instanceof KeyValue)
+				{
+					PublicKey pubKey = null;
+					try
+					{
+						// 公開鍵の取得
+						pubKey = ((KeyValue)xmlStructure).getPublicKey();
+					}
+					catch (KeyException ke)
+					{
+						throw new KeySelectorException(ke);
+					}
+					// 署名アルゴリズムの確認
+					if(pubKey.getAlgorithm().equalsIgnoreCase("RSA"))
+						return new SimpleKeySelectorResult(pubKey);		// OK!!
+				}
+			}
+			throw new KeySelectorException("No KeyValue element found!");
+		}
+	}
+
+    // ---------------------------------------------------------------------------
+    // 検証用の鍵戻しクラス（最もシンプルな実装）
+	private static class SimpleKeySelectorResult implements KeySelectorResult
+	{
+		private PublicKey pubKey;
+
+		SimpleKeySelectorResult(PublicKey pubKey)
+		{
+			this.pubKey = pubKey;
+		}
+
+		public Key getKey()
+		{
+			return pubKey;
+		}
+	}
+
+	/* --------------------------------------------------------------------------- */
+	/* 補助 */
 
 	/* URIの基点となるルートディレクトリを指定 */
 	@Override
@@ -543,9 +792,26 @@ public class FreeXAdES implements IFreeXAdES {
 	}
 	
 	/* ハッシュ計算/署名計算時に使われるハッシュアルゴリズムを指定 */
+	@Override
 	public void setHashAlg(String hashAlg) {
 		hashAlg_ = hashAlg;
 	}
+
+	/* --------------------------------------------------------------------------- */
+	/* エラー処理 */
+
+	private	int lastError_ = FXERR_NO_ERROR;				// 最後のエラー値を保持
+	public int getLastError() { return lastError_; }		// 最後のエラー値を取得
+	public void clearLastError() {							// 最後のエラー値をクリア
+		lastError_ = FXERR_NO_ERROR;
+	}
+	private int setLastError(int fxerr) {					// エラー値セット(内部用)
+		lastError_ = fxerr;
+		return fxerr;
+	}
+	
+	/* --------------------------------------------------------------------------- */
+	/* 内部補助 */
 
 	/* ルートディレクトリも考慮したパスを返す */
 	private String getPath(String file) {
@@ -590,6 +856,126 @@ public class FreeXAdES implements IFreeXAdES {
 			setLastError(FXERR_INVALID_ARG);
 		}
 		return bin;
+	}
+
+	/* C14N正規化メソッド取得 */
+	private CanonicalizationMethod getCanonicalMethod(int fxrFlag) {
+		CanonicalizationMethod cm = null;
+		try {
+			if((fxrFlag & FXRF_TRANS_C14N_EX) != 0) {
+				cm = sigFact_.newCanonicalizationMethod(CanonicalizationMethod.EXCLUSIVE, (C14NMethodParameterSpec)null);
+			} else {
+				cm = sigFact_.newCanonicalizationMethod(CanonicalizationMethod.INCLUSIVE, (C14NMethodParameterSpec)null);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_INVALID_ALG);
+		}				
+		return cm;
+	}
+
+	/* 署名メソッド取得 */
+	private SignatureMethod getSignatureMethod() {
+		SignatureMethod sm = null;
+		try {
+			if(hashAlg_ == null || hashAlg_ == DigestMethod.SHA256) {
+				sm = sigFact_.newSignatureMethod(RSA_SHA256, null);
+//			} else if(hashAlg_ == DigestMethod.SHA384) {	// 未サポート
+//				sm = sigFact_.newSignatureMethod(RSA_SHA384, null);				
+			} else if(hashAlg_ == DigestMethod.SHA512) {
+				sm = sigFact_.newSignatureMethod(RSA_SHA512, null);				
+			} else if(hashAlg_ == DigestMethod.SHA1) {
+				sm = sigFact_.newSignatureMethod(SignatureMethod.RSA_SHA1, null);	// 非推奨
+			} else {
+				setLastError(FXERR_PKI_UNK_ALG);
+			}
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_UNK_ALG);
+		} catch (InvalidAlgorithmParameterException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_INVALID_ALG);
+		}				
+		return sm;
+	}
+
+	/* ハッシュメソッド取得 */
+	private DigestMethod getDigestMethod() {
+		DigestMethod dm = null;
+		try {
+			if(hashAlg_ == null || hashAlg_ == DigestMethod.SHA256) {
+				dm = sigFact_.newDigestMethod(DigestMethod.SHA256, null);
+//			} else if(hashAlg_ == DigestMethod.SHA384) {	// 未サポート
+//				dm = sigFact_.newDigestMethod(DigestMethod.SHA384, null);
+			} else if(hashAlg_ == DigestMethod.SHA512) {
+				dm = sigFact_.newDigestMethod(DigestMethod.SHA512, null);
+			} else if(hashAlg_ == DigestMethod.SHA1) {
+				dm = sigFact_.newDigestMethod(DigestMethod.SHA1, null);		// 非推奨
+			} else {
+				setLastError(FXERR_PKI_UNK_ALG);
+			}
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_UNK_ALG);
+		} catch (InvalidAlgorithmParameterException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_INVALID_ALG);
+		}
+		return dm;
+	}
+	
+	/* ハッシュ計算 */
+	private byte[] getHash(byte[] data) {
+		byte[] hash = null;
+		MessageDigest md = null;
+		try {
+			if(hashAlg_ == null || hashAlg_ == DigestMethod.SHA256 ) {
+				md = MessageDigest.getInstance("SHA-256");
+//			} else if(hashAlg_ == DigestMethod.SHA384) {	// 未サポート
+//				md = MessageDigest.getInstance("SHA-384");
+			} else if(hashAlg_ == DigestMethod.SHA512) {
+				md = MessageDigest.getInstance("SHA-512");
+			} else if(hashAlg_ == DigestMethod.SHA1) {
+				md = MessageDigest.getInstance("SHA-1");
+			} else {
+				setLastError(FXERR_PKI_UNK_ALG);
+				return hash;
+			}
+	        md.update(data);
+	        hash = md.digest();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			setLastError(FXERR_PKI_UNK_ALG);
+		}
+        return hash;
+	}
+	
+	/* ElementのC14N正規化処理 */
+	private byte[] getC14N(Element elmt, int fxrFlag) {
+		byte[] c14n = null;
+		try {
+			// Elementをバイナリへ変換
+			ByteArrayOutputStream bs = new ByteArrayOutputStream();
+			TransformerFactory tff = TransformerFactory.newInstance();
+			Transformer tf = tff.newTransformer();
+			tf.transform(new DOMSource(elmt), new StreamResult(bs));
+			// C14N正規化
+	    	ByteArrayInputStream inStream = new ByteArrayInputStream(bs.toByteArray());
+			XMLSignatureFactory xsf = XMLSignatureFactory.getInstance("DOM");
+	    	CanonicalizationMethod cm = xsf.newCanonicalizationMethod(CanonicalizationMethod.INCLUSIVE, (C14NMethodParameterSpec)null);
+	    	OctetStreamData rsltData = (OctetStreamData)cm.transform(new OctetStreamData(inStream), null);
+	    	// 正規化済みバイナリの取得
+	    	InputStream rsltStream = rsltData.getOctetStream();
+	    	c14n = new byte[rsltStream.available()];
+	    	rsltStream.read(c14n);
+		} catch (IOException e) {
+			e.printStackTrace();
+			setLastError(FXERR_IO_EXCEPTION);
+		} catch (Exception e) {
+			e.printStackTrace();
+			setLastError(FXERR_XML_C14N);
+		}
+		return c14n;
 	}
 
 	/* --------------------------------------------------------------------------- */

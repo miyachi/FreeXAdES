@@ -25,6 +25,13 @@ public interface IFreeXAdES {
 	public static final int FXERR_FILE_READ			= -1011;		///< ファイル読み込みエラー
 	public static final int FXERR_FILE_WRITE		= -1012;		///< ファイル書き込みエラー
 	public static final int FXERR_XML_MARSHAL		= -1020;		///< XMLマーシャリングエラー
+	public static final int FXERR_XML_XPATH			= -1021;		///< XMLのXPathエラー
+	public static final int FXERR_XML_PARSE			= -1022;		///< XML解析エラー
+	public static final int FXERR_XML_GET			= -1023;		///< XML取得エラー
+	public static final int FXERR_XML_CONV			= -1024;		///< XML変換エラー
+	public static final int FXERR_XML_C14N			= -1025;		///< XML正規化エラー
+	public static final int FXERR_XML_PARENT		= -1026;		///< XML挿入場所エラー
+	public static final int FXERR_XML_NOTFOUND		= -1027;		///< 指定要素が見つからない
 	// -2000番台は証明書/鍵のエラー
 	public static final int FXERR_PKI_UNK_ALG		= -2000;		///< 不明アルゴリズムが使われた
 	public static final int FXERR_PKI_INVALID_ALG	= -2001;		///< アルゴリズムパラメーターが異常
@@ -33,8 +40,10 @@ public interface IFreeXAdES {
 	public static final int FXERR_PKI_KEY_STORE		= -2004;		///< 鍵ストアエラー
 	public static final int FXERR_PKI_SIGN			= -2005;		///< 署名実行時のエラー
 	public static final int FXERR_PKI_CONFIG		= -2006;		///< コンフィギュレーションエラー
+	public static final int FXERR_PKI_HASH			= -2007;		///< ハッシュ計算エラー
 	// -3000番台はFreeXAdESのエラー
 	public static final int FXERR_NO_REFS			= -3000;		///< Reference設定が無い
+	public static final int FXERR_ID_NOTFOUND		= -3001;		///< 指定されたIdが見つからない
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生
@@ -51,16 +60,16 @@ public interface IFreeXAdES {
 	public static String XADES_V132
 		= "http://uri.etsi.org/01903/v1.3.2#";			// ETSI TS 101 903 V1.3.2
 	
-	/** XML署名 SHA-2 定義.
+	/** XML署名 SHA-2 / Object 定義.
 	 */
-	public static String SIGN_RSA_SHA256
+	public static String RSA_SHA256
 		= "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";	// RSA-SHA256
-	public static String SIGN_RSA_SHA384
+	public static String RSA_SHA384
 		= "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384";	// RSA-SHA384
-	public static String SIGN_RSA_SHA512
+	public static String RSA_SHA512
 		= "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";	// RSA-SHA512
-	public static String HASH_SHA384
-		= "http://www.w3.org/2001/04/xmlenc#sha384";			// SHA-384
+	public static String OBJECT_URI
+		= "http://www.w3.org/2000/09/xmldsig#Object";			// XmlDsig Object
 	
 	/* --------------------------------------------------------------------------- */
 
@@ -77,6 +86,7 @@ public interface IFreeXAdES {
 
 	/** argument type.
 	 */
+	public static final int FXAT_NOT_USE		= -1;	// 引数targetを使わない」
 	public static final int FXAT_FILE_PATH		= 0;	// 引数targetはファイルパス
 	public static final int FXAT_XML_STRING		= 1;	// 引数targetはXML文字列
 	public static final int FXAT_XML_ID			= 2;	// 引数targetはXMLのID(1文字目は#)
@@ -87,16 +97,18 @@ public interface IFreeXAdES {
 	public static final int FXRF_NONE			= 0;
 	public static final int FXRF_TRANS_C14N		= 0x00000001;
 	public static final int FXRF_TRANS_C14N_EX	= 0x00000002;
-	public static final int FXRF_TRANS_BASE64	= 0x00000004;
-	public static final int FXRF_TRANS_XPATH	= 0x00000008;
+	public static final int FXRF_TRANS_BASE64	= 0x00000010;
+	public static final int FXRF_TRANS_XPATH	= 0x00000020;
 
 	/* --------------------------------------------------------------------------- */
 
 	/** Signature flag.
 	 */
 	public static final int FXSF_NONE			= 0;	
-	public static final int FXSF_NO_XADES_OBJ	= 0x00000001;	///< XAdESオブジェクトを追加しない(XmlDsigになる)
-	public static final int FXSF_NO_SIGN_TIME	= 0x00000002;	///< XAdESオブジェクトのSigningTimeを追加しない
+	public static final int FXSF_TRANS_C14N		= FXRF_TRANS_C14N;
+	public static final int FXSF_TRANS_C14N_EX	= FXRF_TRANS_C14N_EX;
+	public static final int FXSF_NO_XADES_OBJ	= 0x00000010;	///< XAdESオブジェクトを追加しない(XmlDsigになる)
+	public static final int FXSF_NO_SIGN_TIME	= 0x00000020;	///< XAdESオブジェクトのSigningTimeを追加しない
 
 	/* --------------------------------------------------------------------------- */
 
@@ -186,10 +198,11 @@ public interface IFreeXAdES {
 	 * @param target FXAT_FILE_PATHならファイルパス、FXAT_XML_STRINGならXML文字列、FXAT_DATA_STRINGなら文字列、を指定
 	 * @param fxaType　FXAT_FILE_PATH か FXAT_XML_STRING か FXAT_DATA_STRING が指定可能
 	 * @param fxrFlag　FXAT_FILE_PATH か FXAT_DATA_STRING の時に FXRF_TRANS_BASE64 が指定可能
+	 * @param id 追加するオブジェクトのIdを指定可能（nullなら自動生成したIdを使う）
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
-	public int addEnveloping(String target, int fxaType, int fxrFlag);
+	public int addEnveloping(String target, int fxaType, int fxrFlag, String id);
 
 	/** Enveloped(内包)署名対象の追加
 	 * Enveloped形式の署名対象（Reference）を追加する。
@@ -198,11 +211,12 @@ public interface IFreeXAdES {
 	 * FXAT_XML_STRING 引数targetはXML文字列
 	 * @param target FXAT_FILE_PATHならファイルパス、FXAT_XML_STRINGならXML文字列を指定、setXml済みならnullを指定
 	 * @param fxaType　FXAT_FILE_PATH か FXAT_XML_STRING が指定可能
-	 * @param xpath　オプションでXPathによる署名対象が指定可能(指定しない場合はnullを指定可能)
+	 * @param fxrFlag　FXRF_TRANS_C14N か FXRF_TRANS_C14N_EX が指定可能(未指定なら FXRF_TRANS_C14N となる)
+	 * @param xpath　オプションでXPathによる署名対象が指定可能(指定しない場合はnullを指定可能) ※ 現在未サポート
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
-	public int addEnveloped(String target, int fxaType, String xpath);
+	public int addEnveloped(String target, int fxaType, int fxrFlag, String xpath);
 
 	/* --------------------------------------------------------------------------- */
 	/* 署名処理 */
@@ -220,35 +234,19 @@ public interface IFreeXAdES {
 	public int execSign(String p12file, String p12pswd, int fxsFlag, String id, String xpath);
 
 	/* --------------------------------------------------------------------------- */
-	/* 検証処理 */
+	/* 検証処理（仮） */
 
 	/** 署名を検証する
-	 * 現在セットされた署名を検証して検証結果XMLを返す。
+	 * 現在セットされた署名を検証して検証結果を返す。
 	 * 署名後かsetXml後に検証可能。
 	 * @param fxvFlag 検証時のフラグ指定（通常は 0:FXVF_NONE で良い）
 	 * @param xpath 検証対象となるSignature要素をXPathで指定（署名が1つだけならnullにて省略可能）
-	 * @return 非null 検証結果XMLのUTF-8バイナリが返る
-	 * @return null エラー（getLastError()でエラー値取得可能）
-	 * @note 現在署名値のみ検証（FXVF_NO_CERT_VERIFY指定時と同じ） TODO:証明書の検証
+	 * @return FXVS_VALID 検証結果正常
+	 * @return FXVS_INVALID 検証結果異常（改ざんあり）
+	 * @return FXVS_NO_SIGN 署名が無かった
 	 */
-	public byte[] verifySign(int fxvFlag, String xpath);
+	public int verifySign(int fxvFlag, String xpath);
 
-	/** 検証結果XMLから署名検証結果ステータスを取得
-	 * 検証結果XMLのルート要素から署名検証結果ステータスを取得して返す。
-	 * @param verifiedXml 検証結果XML（verifySign()の戻り値）
-	 * @return 0以上 署名検証結果ステータスが返る
-	 * @return 0未満 エラー値が返る
-	 */
-	public int getVerifiedStatus(byte[] verifiedXml);
-
-	/** 検証結果XMLからエラーを取得
-	 * 検証結果XMLのエラーと警告の値を配列で取得する。
-	 * @param verifiedXml 検証結果XML（verifySign()の戻り値）
-	 * @return 非null 検証結果XML中のエラーと警告の値が配列で返る
-	 * @return null エラーは無かった
-	 */
-	public int[] getVerifiedErrors(byte[] verifiedXml);
-	
 	/* --------------------------------------------------------------------------- */
 	/* 補助 */
 
@@ -260,10 +258,15 @@ public interface IFreeXAdES {
 	
 	/** ハッシュ計算/署名計算時に使われるハッシュアルゴリズムを指定
 	 * 省略時には DigestMethod.SHA256 が使われる。
+	 * DigestMethod.SHA256 と DigestMethod.SHA512 と DigestMethod.SHA1 が利用可能。
+	 * DigestMethod.SHA384 はJava標準では未定義なので指定できない。
 	 * @param hashAlg DigestMethod を指定
 	 */
 	public void setHashAlg(String hashAlg);
 	
+	/* --------------------------------------------------------------------------- */
+	/* エラー処理 */
+
 	/** 最後のエラー値を取得
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）

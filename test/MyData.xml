@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<MyData xmlns="" Id="ROOT">
+<MyData xmlns="http://eswg.jnsa.org/freexades/MyData">
   <Data Id="D1" price="680">書籍</Data>
   <Data price="100" Id="D2">文具(ノート)</Data>
 </MyData>
