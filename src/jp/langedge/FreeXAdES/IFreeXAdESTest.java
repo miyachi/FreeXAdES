@@ -383,7 +383,7 @@ public class IFreeXAdESTest {
 		// ES-T‚Ì’Ç‰Á
 		System.out.println(" - add ES-T.");
 		String tsUrl = "http://eswg.jnsa.org/freetsa";
-		rc = xades.addEsT(tsUrl, null, null, null, null);
+		rc = xades.addEsT(tsUrl, null, null, "ES-T-test", null);
 		assertEquals(rc, IFreeXAdES.FXERR_NO_ERROR);
 
 		// •Û‘¶

@@ -693,7 +693,7 @@ public class FreeXAdES implements IFreeXAdES {
 			setLastError(FXERR_EST_TSRES);
 
 		// タイムスタンプトークンの出力
-		rc = addEstTst(target, tst);
+		rc = addEstTst(target, tst, id);
 		if(rc < 0)
 			setLastError(rc);
 
@@ -713,11 +713,18 @@ public class FreeXAdES implements IFreeXAdES {
 			Node node = list.item(i);
 			if(node.getNodeName() == "SignatureValue")
 			{
+				value = getC14N((Element) node, FXRF_TRANS_C14N);
+//				value = getHash(c14n);
+//				String temp = new String(c14n);
+//				System.out.println(temp);
+				/*
 				Node target = node.getFirstChild();
 				String b64 = target.getNodeValue();
 				if(b64 == null)
 					return value;
-				value = Base64.getMimeDecoder().decode(b64);
+//				value = Base64.getMimeDecoder().decode(b64);
+				value = b64.getBytes();
+				*/
 				break;
 			}
 		}
@@ -725,12 +732,13 @@ public class FreeXAdES implements IFreeXAdES {
 	}
 
 	/* TSTの埋め込み */
-	private int addEstTst(Node sign, byte[] tst)
+	private int addEstTst(Node sign, byte[] tst, String id)
 	{
 		int rc = FXERR_NO_ERROR;
+
 		if(sign == null)
 			return FXERR_INVALID_ARG;
-//		NodeList target = getNodesByPath(sign, "/ds:Signature/ds:Object");
+
 		String path = "ds:Object/xsd:QualifyingProperties";
 		NodeList list = getNodesByPath(sign, path);
 		if(list == null || list.getLength() <= 0)
@@ -742,24 +750,44 @@ public class FreeXAdES implements IFreeXAdES {
 		if(list2 == null || list2.getLength() <= 0) {
 			Node qp = list.item(0);
 			Element up = signDoc_.createElementNS(XADES_V132, "xsd:UnsignedProperties");
+			up.setPrefix("");
 			qp.appendChild(up);
 			unsign = up;
 		} else {
 			unsign = list2.item(0);
 		}
 		
-		String path3 = path + "/xsd:UnsignedSignatureProperties";
+		String path3 = path2 + "/xsd:UnsignedSignatureProperties";
 		NodeList list3 = getNodesByPath(sign, path3);
 		Node usp = null;
 		if(list3 == null || list3.getLength() <= 0) {
 			Element usp2 = signDoc_.createElementNS(XADES_V132, "xsd:UnsignedSignatureProperties");
+			usp2.setPrefix("");
 			unsign.appendChild(usp2);
 			usp = usp2;
 		} else {
 			usp = list3.item(0);
 		}
 		
+		String path4 = path3 + "/xsd:SignatureTimeStamp";
+		NodeList list4 = getNodesByPath(sign, path4);
+		if(list3 != null && list3.getLength() > 0)
+			return FXERR_EST_NODE;
+
+		Element sts = signDoc_.createElementNS(XADES_V132, "xsd:SignatureTimeStamp");
+		sts.setPrefix("");
+		if(id != null)
+			sts.setAttribute("Id", id);
+		usp.appendChild(sts);
 		
+		Element ets = signDoc_.createElementNS(XADES_V132, "xsd:EncapsulatedTimeStamp");
+		ets.setPrefix("");
+		sts.appendChild(ets);
+
+		String b64 = Base64.getMimeEncoder().encodeToString(tst);
+		Node tstText = signDoc_.createTextNode(b64);
+		ets.appendChild(tstText);
+
 		return rc;
 	}
 
@@ -844,14 +872,11 @@ public class FreeXAdES implements IFreeXAdES {
                   return Arrays.asList("xsd141").iterator();
               return null;
             }
-          });
+        });
         try {
         	list = (NodeList)xpath.evaluate(path, signDoc_, XPathConstants.NODESET);
         	int num = list.getLength();
         	System.out.println( "DEBUG: num = " + num );
-//	        for( int i = 0; i < list.getLength(); i++ ) {
-//	        	System.out.println( list.item(i).getNodeValue() );
-//	        }
 		} catch (XPathExpressionException e) {
 			e.printStackTrace();
 			list = null;

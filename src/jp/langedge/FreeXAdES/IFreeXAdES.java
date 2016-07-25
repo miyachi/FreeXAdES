@@ -49,6 +49,7 @@ public interface IFreeXAdES {
 	public static final int FXERR_EST_CONNECT		= -3102;		///< HTTP接続によるT取得エラー
 	public static final int FXERR_EST_TSRES			= -3103;		///< TSリクエスト解析エラー
 	public static final int FXERR_EST_OBJECT		= -3104;		///< XAdESオブジェクトが見つからない
+	public static final int FXERR_EST_NODE			= -3105;		///< 既にSignatureTimeStampがある
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生
