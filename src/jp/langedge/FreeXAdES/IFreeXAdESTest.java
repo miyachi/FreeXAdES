@@ -48,6 +48,7 @@ public class IFreeXAdESTest {
 
 	private static String testXmlFile_ = "MyData.xml";		// 内容はtestXml_と同じ
 	private static String testDataFile_ = "aaa.txt";		// 内容はtestData_と同じ
+	private static String testXAdESFile_ = "signed.xml";	// 内容はEnvelopingB64.xmlと同じ
 
     //////////////////////////////////////////////////////////////////////////////
 	// 署名用PKCS#12設定
@@ -361,4 +362,47 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
+	@Test
+	public void testEsT() {
+		// Enveloped（埋込）の試験
+		System.out.println("testEsT call");
+		String typeName = "ES-T";
+		
+		// インスタンス生成・初期化
+		System.out.println(" - create.");
+		int rc = IFreeXAdES.FXERR_NO_ERROR;
+		FreeXAdES xades = new FreeXAdES();
+		assertNotNull(xades);
+		xades.setRootDir("./test/");
+
+		// 本体XMLの読み込み(XMLから)
+		System.out.println(" - set XAdES from xml.");
+		rc = xades.loadXml(testXAdESFile_, IFreeXAdES.FXAT_FILE_PATH);
+		assertEquals(rc, IFreeXAdES.FXERR_NO_ERROR);
+
+		// ES-Tの追加
+		System.out.println(" - add ES-T.");
+		String tsUrl = "http://eswg.jnsa.org/freetsa";
+		rc = xades.addEsT(tsUrl, null, null, null, null);
+		assertEquals(rc, IFreeXAdES.FXERR_NO_ERROR);
+
+		// 保存
+		System.out.println(" - save XAdES.");
+		String file = typeName + ".xml";
+		rc = xades.saveXml(file);
+		assertEquals(rc, IFreeXAdES.FXERR_NO_ERROR);
+
+		// 表示
+		System.out.println(" - print XAdES.");
+		byte[] xml = xades.getXml();
+		assertNotNull(xml);
+		System.out.println(new String(xml));
+
+		// 検証
+		testVerify(file);
+		
+		// 終了・解放
+		System.out.println(" - finalize.");
+		xades.finalize();
+	}
 }

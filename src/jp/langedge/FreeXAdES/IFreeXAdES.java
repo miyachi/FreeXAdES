@@ -44,6 +44,10 @@ public interface IFreeXAdES {
 	// -3000番台はFreeXAdESのエラー
 	public static final int FXERR_NO_REFS			= -3000;		///< Reference設定が無い
 	public static final int FXERR_ID_NOTFOUND		= -3001;		///< 指定されたIdが見つからない
+	public static final int FXERR_EST_TSREQ			= -3100;		///< TSリクエスト生成エラー
+	public static final int FXERR_GET_SIGVALUE		= -3101;		///< SignatureValueの取得エラー
+	public static final int FXERR_EST_CONNECT		= -3102;		///< HTTP接続によるT取得エラー
+	public static final int FXERR_EST_TSRES			= -3103;		///< TSリクエスト解析エラー
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生
@@ -232,6 +236,18 @@ public interface IFreeXAdES {
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
 	public int execSign(String p12file, String p12pswd, int fxsFlag, String id, String xpath);
+
+	/** 署名タイムスタンプを追加する
+	 * 指定されたURLにより署名タイムスタンプを取得しXAdES-Tを生成する。
+	 * @param tsUrl タイムスタンプサービス/サーバーの指定
+	 * @param bUser Basic認証用のユーザーIDの指定（不要ならNULL） ※ 現在未サポート
+	 * @param bPswd Basic認証用のパスワードの指定（不要ならNULL） ※ 現在未サポート
+	 * @param id SignatureTimeStamp要素に付けるIdの指定（nullにて省略可能）
+	 * @param xpath 検証対象となるSignature要素をXPathで指定（署名が1つだけならnullにて省略可能）
+	 * @return エラーなし FXERR_NO_ERROR が返る
+	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
+	 */
+	public int addEsT(String tsUrl, String bUser, String bPswd, String id, String xpath);
 
 	/* --------------------------------------------------------------------------- */
 	/* 検証処理（仮） */

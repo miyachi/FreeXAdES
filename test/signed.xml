@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><Signature xmlns="http://www.w3.org/2000/09/xmldsig#" Id="EnvelopingB64"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><Reference Type="http://www.w3.org/2000/09/xmldsig#Object" URI="#Eping-Obj-0"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#base64"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><DigestValue>mDSHbc+wXLFnpcJJU+uljErImxrfV/KPL50JrxB+6PA=</DigestValue></Reference><Reference Type="http://uri.etsi.org/01903#SignedProperties" URI="#EnvelopingB64-XAdES-SignProp"><Transforms><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><DigestValue>Gk/+mB9TBIxvApW5wAxVAP/5mJgF5e3mI3SS8/DiFIM=</DigestValue></Reference></SignedInfo><SignatureValue>Bl+qg2hREC6V7+tt14emoQWu2R3IuMXtfefu/s82VDReTIHrVTLpELtFBe+R0kJVaM4eiCgaY0lz
+S0Auhowulskciu17L7gQUTwxPaXwwsOE/zog3Vn4IEQPVpky7tIxsGb30Ou/+Zg1qhGrfz3Igg2T
+wjioXjLgXREzbOLdmgkax9Kddxf9wOUBCHqSQhtWA1fOaj0crsW9PbuuYk6P9vV3LpCzhOpV4gAu
+WIZ4B0Fu9mW2c9Y7puH9zMR5p7P5uStbxlFkdoyOXQmZUZdlPmGO7/hBVK+RM09p8zZdPDbdMyPT
+SsNIiTuIm5PIz7A5N5lv8WzLyBo146bg2VaURg==</SignatureValue><KeyInfo Id="EnvelopingB64-key"><KeyValue><RSAKeyValue><Modulus>7RPbdUaj5dYTp3in57xQlK5PXO4kh17Mpn37YHJHdHwEIURvUhOwG4FOVyx9AB800iYR8KQ7eFGq
+C9+cbd8nkqnZL1xXGchwNaGqQDsHN+dJbvI8zbhtoWey8HqQraqqjX12vEoRB6p/IEX2cPRDtgHV
+TnAkmuNkxHsGDr8+UEWNwo9Oql/Xh3LaMJRjMFl17PKawaisTDVzEdI90o4XDTPwkGoQ+Y24x/j/
+SQxuL9YGk/P+ofjX05vGj+IDbYK80PU0VyPMeO800dCah/03K66eKQ7uFcioNmDIeo30TAtVXF+e
+YEbMdGhpevzVKZO5CvTIm2Tuxn9wKqdzDQqRrQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>MIIEGDCCAwCgAwIBAgIDEAABMA0GCSqGSIb3DQEBCwUAMFAxCzAJBgNVBAYTAkpQMQ0wCwYDVQQK
+EwRKTlNBMQ0wCwYDVQQLEwRFU1dHMSMwIQYDVQQDExpKTlNBIFBLSSBTYW5kYm94IENBIFJvb3Qg
+MTAeFw0xNTAyMjUwNjUwMDlaFw0yNTAyMjIwNjUwMDlaMFIxCzAJBgNVBAYTAkpQMQ0wCwYDVQQK
+EwRKTlNBMQ0wCwYDVQQLEwRFU1dHMSUwIwYDVQQDExxKTlNBIFBLSSBTYW5kYm94IFRlc3QgMTAw
+MDAxMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7RPbdUaj5dYTp3in57xQlK5PXO4k
+h17Mpn37YHJHdHwEIURvUhOwG4FOVyx9AB800iYR8KQ7eFGqC9+cbd8nkqnZL1xXGchwNaGqQDsH
+N+dJbvI8zbhtoWey8HqQraqqjX12vEoRB6p/IEX2cPRDtgHVTnAkmuNkxHsGDr8+UEWNwo9Oql/X
+h3LaMJRjMFl17PKawaisTDVzEdI90o4XDTPwkGoQ+Y24x/j/SQxuL9YGk/P+ofjX05vGj+IDbYK8
+0PU0VyPMeO800dCah/03K66eKQ7uFcioNmDIeo30TAtVXF+eYEbMdGhpevzVKZO5CvTIm2Tuxn9w
+KqdzDQqRrQIDAQABo4H4MIH1MAsGA1UdDwQEAwIE0DAdBgNVHQ4EFgQUnAs35lYj+zxg7dhqwCD2
+VDsl+t4wfgYDVR0jBHcwdYAUw7DYUoJ9nZzv1KHbpM5EsKB/fXahVKRSMFAxCzAJBgNVBAYTAkpQ
+MQ0wCwYDVQQKEwRKTlNBMQ0wCwYDVQQLEwRFU1dHMSMwIQYDVQQDExpKTlNBIFBLSSBTYW5kYm94
+IENBIFJvb3QgMYIHA41+pMaAATAJBgNVHRMEAjAAMDwGA1UdHwQ1MDMwMaAvoC2GK2h0dHA6Ly9l
+c3dnLmpuc2Eub3JnL3NhbmRib3gvZnJlZWNhL2NhMS5jcmwwDQYJKoZIhvcNAQELBQADggEBACP+
+PD9HLd0GOy8EDClxkR7/R99l/LAISx7SnrxV8D0fV+Ez6gD/nqi6xaYaQwVyQkHfZ6M52X9USPgk
++Tch83EflMgs6ZvMgP3GzJyzfpdE/MSn8Ab6lPHcA+IXuO/C1Tl5jnuUyyUc+D8F061gQbbYEJiM
+lJnpRmuUx64ulbaLuOOi39ZQXrXgZgy02jODMSWM//0psiIkWwoBYd5sWJJroED5vOKwI/vVwJ4n
+d3Gs2UY4Ph0j7GWTC/UTzjsug6/hElWHO9hAFW/PEkoD5J/j68ZGXvPmnIhlDuBfWNYtmEyQmfyM
+oweh3iCDhygTZQY1QJED512MY++UKFSbtKk=</X509Certificate></X509Data></KeyInfo><Object Id="EnvelopingB64-XAdES-Obj"><QualifyingProperties Target="#EnvelopingB64" xmlns="http://uri.etsi.org/01903/v1.3.2#"><SignedProperties Id="EnvelopingB64-XAdES-SignProp"><SignedSignatureProperties><SigningCertificate><Cert><CertDigest><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" xmlns="http://www.w3.org/2000/09/xmldsig#"/><DigestValue xmlns="http://www.w3.org/2000/09/xmldsig#">rGF0N4je1THZM0tZfeCvd3GAaw3LyPgTVxdTJHPh/ew=</DigestValue></CertDigest><IssuerSerial><X509IssuerName xmlns="http://www.w3.org/2000/09/xmldsig#">CN=JNSA PKI Sandbox CA Root 1, OU=ESWG, O=JNSA, C=JP</X509IssuerName><X509SerialNumber xmlns="http://www.w3.org/2000/09/xmldsig#">1048577</X509SerialNumber></IssuerSerial></Cert></SigningCertificate><SigningTime>2016-06-07T10:31:36Z</SigningTime></SignedSignatureProperties></SignedProperties></QualifyingProperties></Object><Object Encoding="http://www.w3.org/2000/09/xmldsig#base64" Id="Eping-Obj-0" MimeType="text/plain">YWFh</Object></Signature>
