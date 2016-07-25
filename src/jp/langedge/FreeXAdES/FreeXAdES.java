@@ -20,6 +20,7 @@ import javax.xml.crypto.dsig.*;
 import javax.xml.crypto.dsig.dom.*;
 import javax.xml.crypto.dsig.keyinfo.*;
 import javax.xml.crypto.dsig.spec.*;
+import javax.xml.namespace.*;
 import javax.xml.parsers.*;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.*;
@@ -729,18 +730,132 @@ public class FreeXAdES implements IFreeXAdES {
 		int rc = FXERR_NO_ERROR;
 		if(sign == null)
 			return FXERR_INVALID_ARG;
-
+//		NodeList target = getNodesByPath(sign, "/ds:Signature/ds:Object");
+		String path = "ds:Object/xsd:QualifyingProperties";
+		NodeList list = getNodesByPath(sign, path);
+		if(list == null || list.getLength() <= 0)
+			return FXERR_EST_OBJECT;
+		
+		String path2 = path + "/xsd:UnsignedProperties";
+		NodeList list2 = getNodesByPath(sign, path2);
+		Node unsign = null;
+		if(list2 == null || list2.getLength() <= 0) {
+			Node qp = list.item(0);
+			Element up = signDoc_.createElementNS(XADES_V132, "xsd:UnsignedProperties");
+			qp.appendChild(up);
+			unsign = up;
+		} else {
+			unsign = list2.item(0);
+		}
+		
+		String path3 = path + "/xsd:UnsignedSignatureProperties";
+		NodeList list3 = getNodesByPath(sign, path3);
+		Node usp = null;
+		if(list3 == null || list3.getLength() <= 0) {
+			Element usp2 = signDoc_.createElementNS(XADES_V132, "xsd:UnsignedSignatureProperties");
+			unsign.appendChild(usp2);
+			usp = usp2;
+		} else {
+			usp = list3.item(0);
+		}
+		
+		
 		return rc;
 	}
 
+	/* nodeˆÊ’u‚©‚çXPath‚ðŽæ“¾ */
+	String getXPath(Node node, String xpath)
+	{
+		if(node == null || node.getLocalName() == null)
+			return xpath;
+		
+		int count = 1;
+		String name = node.getLocalName();
+		Node prev = node.getPreviousSibling();
+		while(prev != null) {
+			if(prev.getLocalName() == name)
+				count++;
+			prev = prev.getPreviousSibling();
+		}
+		String prefix = null;
+		String uri = node.getNamespaceURI();
+		if(uri != null) {
+			if(uri == XML_DSIG)
+				prefix = "ds:";
+			else if(uri == XADES_V132)
+				prefix = "xsd:";
+			else if(uri == XADES_V141)
+				prefix = "xsd141:";
+		}
+		if(prefix != null)
+			name = prefix + name;
+		name = "/" + name;
+		if(count > 1)
+			name += "[" + count + "]";
+		if(xpath == null)
+			xpath = name;
+		else
+			xpath = name + xpath;
+
+		return getXPath(node.getParentNode(), xpath);
+	}
+	
 	NodeList getNodesByPath(Node node, String path)
 	{
 		NodeList list = null;
 
-		
-//		Element elmt = (Element)node;
-		
-//		list = elmt.getElementsByTagName(path);
+		if(path.charAt(0) != '/') {
+			String root = getXPath(node, null);
+			path = root + "/" + path;
+		}
+        XPathFactory factory = XPathFactory.newInstance();
+        XPath xpath = factory.newXPath();
+        xpath.setNamespaceContext(new NamespaceContext() {
+            public String getNamespaceURI(String prefix) {
+              if (prefix == null)
+                throw new IllegalArgumentException();
+              else if ("ds".equals(prefix))
+                  return XML_DSIG;
+              else if ("xsd".equals(prefix))
+                  return XADES_V132;
+              else if ("xsd141".equals(prefix))
+                  return XADES_V141;
+              return null;
+            }
+            public String getPrefix(String namespaceURI) {
+              if (namespaceURI == null)
+                throw new IllegalArgumentException();
+              else if (XML_DSIG.equals(namespaceURI))
+                  return "ds";
+              else if (XADES_V132.equals(namespaceURI))
+                  return "xsd";
+              else if (XADES_V141.equals(namespaceURI))
+                  return "xsd141";
+              return null;
+            }
+            public Iterator<String> getPrefixes(String namespaceURI) {
+              if (namespaceURI == null)
+                throw new IllegalArgumentException();
+              else if (XML_DSIG.equals(namespaceURI))
+                  return Arrays.asList("ds").iterator();
+              else if (XADES_V132.equals(namespaceURI))
+                  return Arrays.asList("xsd").iterator();
+              else if (XADES_V141.equals(namespaceURI))
+                  return Arrays.asList("xsd141").iterator();
+              return null;
+            }
+          });
+        try {
+        	list = (NodeList)xpath.evaluate(path, signDoc_, XPathConstants.NODESET);
+        	int num = list.getLength();
+        	System.out.println( "DEBUG: num = " + num );
+//	        for( int i = 0; i < list.getLength(); i++ ) {
+//	        	System.out.println( list.item(i).getNodeValue() );
+//	        }
+		} catch (XPathExpressionException e) {
+			e.printStackTrace();
+			list = null;
+		}
 		return list;
 	}
 	

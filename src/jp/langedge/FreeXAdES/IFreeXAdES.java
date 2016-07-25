@@ -48,6 +48,7 @@ public interface IFreeXAdES {
 	public static final int FXERR_GET_SIGVALUE		= -3101;		///< SignatureValueの取得エラー
 	public static final int FXERR_EST_CONNECT		= -3102;		///< HTTP接続によるT取得エラー
 	public static final int FXERR_EST_TSRES			= -3103;		///< TSリクエスト解析エラー
+	public static final int FXERR_EST_OBJECT		= -3104;		///< XAdESオブジェクトが見つからない
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生
@@ -57,6 +58,8 @@ public interface IFreeXAdES {
 	
 	/** XAdES namespace 定義.
 	 */
+	public static String XML_DSIG
+		= "http://www.w3.org/2000/09/xmldsig#";			// XmlDsig
 	public static String XADES_SIGN_PROP
 		= "http://uri.etsi.org/01903#SignedProperties";	// ETSI TS 101 903 SignedProperties
 	public static String XADES_V141
