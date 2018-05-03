@@ -8,6 +8,8 @@ import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
 
+import javax.security.cert.X509Certificate;
+
 import jp.langedge.FreeXAdES.FreeXAdES.DERTag;
 import jp.langedge.FreeXAdES.FreeXAdES.PKIStatus;
 
@@ -23,6 +25,67 @@ import java.net.*;
  *
  */
 public class FreeTimeStamp implements IFreeTimeStamp {
+
+	/* タイムスタンプをサーバ（TSA）から取得する */
+	@Override
+	public int getFromServer(byte[] hash, String url, String userid, String passwd)
+	{
+		return -1;
+	}
+
+	/* タイムスタンプトークンのバイナリをセットする */
+	@Override
+	public int setToken(byte[] token)
+	{
+		return -1;
+	}
+
+	/* タイムスタンプトークンがセット済みかどうかを返す */
+	@Override
+	public boolean empty()
+	{
+		return false;
+	}
+
+	/* タイムスタンプトークンのタイムスタンプ時刻を文字列で返す */
+	@Override
+	public String getTimeStampDate()
+	{
+		return null;
+	}
+
+	/* タイムスタンプトークンの対象ハッシュ値（messageImprint）をバイナリで返す */
+	@Override
+	public byte[] getMsgImprint()
+	{
+		return null;
+	}
+
+	/* タイムスタンプトークンのTSA証明書を返す */
+	@Override
+	public X509Certificate getSignerCert()
+	{
+		return null;
+	}
+
+	/* タイムスタンプトークン中の全ての証明書を配列で返す */
+	@Override
+	public X509Certificate[] getAllCerts()
+	{
+		return null;
+	}
+
+	/* タイムスタンプトークンをバイナリで返す */
+	public byte[] getToken()
+	{
+		return null;
+	}
+
+	/* タイムスタンプトークンの署名を検証して結果を返す */
+	public int verify()
+	{
+		return -1;
+	}
 
 	/**
 	 * タイムスタンプのリクエスト情報の生成.
