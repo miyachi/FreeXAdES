@@ -44,12 +44,11 @@ public interface IFreeXAdES {
 	// -3000番台はFreeXAdESのエラー
 	public static final int FXERR_NO_REFS			= -3000;		///< Reference設定が無い
 	public static final int FXERR_ID_NOTFOUND		= -3001;		///< 指定されたIdが見つからない
-	public static final int FXERR_EST_TSREQ			= -3100;		///< TSリクエスト生成エラー
 	public static final int FXERR_GET_SIGVALUE		= -3101;		///< SignatureValueの取得エラー
-	public static final int FXERR_EST_CONNECT		= -3102;		///< HTTP接続によるT取得エラー
-	public static final int FXERR_EST_TSRES			= -3103;		///< TSリクエスト解析エラー
-	public static final int FXERR_EST_OBJECT		= -3104;		///< XAdESオブジェクトが見つからない
-	public static final int FXERR_EST_NODE			= -3105;		///< 既にSignatureTimeStampがある
+	public static final int FXERR_EST_OBJECT		= -3102;		///< XAdESオブジェクトが見つからない
+	public static final int FXERR_EST_NODE			= -3103;		///< 既にSignatureTimeStampがある
+	// -6000番台はFreeTimeStampのエラー
+	// ※ IFreeTimeStamp.java を参照
 	// -9000番台は例外等のエラー
 	public static final int FXERR_NOT_SUPPORT		= -9000;		///< 現在未サポートの機能
 	public static final int FXERR_EXCEPTION			= -9900;		///< 例外発生

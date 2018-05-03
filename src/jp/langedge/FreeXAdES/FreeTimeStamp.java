@@ -5,19 +5,16 @@
 package jp.langedge.FreeXAdES;
 
 import java.io.*;
-import java.math.BigInteger;
+//import java.math.BigInteger;
 import java.util.*;
+import java.net.*;
 
 import javax.security.cert.X509Certificate;
 
-import jp.langedge.FreeXAdES.FreeXAdES.DERTag;
-import jp.langedge.FreeXAdES.FreeXAdES.PKIStatus;
-
-import java.security.*;
-import java.security.cert.*;
-import java.security.cert.Certificate;	// 明示する為にインポート
-import java.text.SimpleDateFormat;
-import java.net.*;
+//import java.security.*;
+//import java.security.cert.*;
+//import java.security.cert.Certificate;	// 明示する為にインポート
+//import java.text.SimpleDateFormat;
 
 /**
  * FreeTimeStamp : FreeTimeStamp main implement class.
@@ -26,25 +23,52 @@ import java.net.*;
  */
 public class FreeTimeStamp implements IFreeTimeStamp {
 
+	private static final int NONCE_SIZE			= 8;	
+
+	private byte[]	token_	= null;
+	
 	/* タイムスタンプをサーバ（TSA）から取得する */
 	@Override
 	public int getFromServer(byte[] hash, String url, String userid, String passwd)
 	{
-		return -1;
+
+		// nonceの生成
+		byte[] nonce = new byte[NONCE_SIZE];
+		new Random().nextBytes(nonce);
+
+		// タイムスタンプリクエストの生成
+		byte[] req = makeRequest(hash, nonce);
+		if(req == null)
+			return FTERR_TS_REQ;
+
+		// タイムスタンプサーバ接続
+		byte[] resp = httpConnect(url, req, userid, passwd);
+		if(resp == null)
+			return FTERR_TS_CONNECT;
+
+		// タイムスタンプレスポンスの解析（タイムスタンプトークン取得）
+		byte[] token = parseResponse(resp, nonce);
+		if(token == null)
+			return FTERR_TS_RES;
+
+		return setToken(token);
 	}
 
 	/* タイムスタンプトークンのバイナリをセットする */
 	@Override
 	public int setToken(byte[] token)
 	{
-		return -1;
+		token_ = token;
+		return FTERR_NO_ERROR;
 	}
 
 	/* タイムスタンプトークンがセット済みかどうかを返す */
 	@Override
 	public boolean empty()
 	{
-		return false;
+		if(token_ == null)
+			return false;
+		return true;
 	}
 
 	/* タイムスタンプトークンのタイムスタンプ時刻を文字列で返す */
@@ -78,7 +102,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	/* タイムスタンプトークンをバイナリで返す */
 	public byte[] getToken()
 	{
-		return null;
+		return token_;
 	}
 
 	/* タイムスタンプトークンの署名を検証して結果を返す */
@@ -97,30 +121,11 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	 * @return 生成したリクエスト情報（バイナリ形式）を返す
 	 */
 	private byte[] makeRequest (
-			byte[] hash,			// 20/32/64 バイト
+			byte[] hash,			// 32/64 バイト
 			byte[] nonce			// 8 バイト
 			)
 	{
 		byte[] req = null;
-
-		// SHA-1 リクエスト情報定義
-		byte[] sha1req = {
-				0x30, 0x31,							// Request SEQUENCE (49バイト)
-				0x02, 0x01, 0x01,					// Version INTEGER (1バイト) value: 1
-				0x30, 0x1f,							// MessageImprint SEQUENCE (31バイト)
-				0x30, 0x07,							// AlgorithmOID SEQUENCE (7バイト)
-				0x06, 0x05,							// OID (5バイト)
-				0x2b, 0x0e, 0x03, 0x02, 0x1a,		// OIDSHA1 value: 1.3.14.3.2.26
-				0x04, 0x14,							// Hash OCTET STRING (20バイト)
-				0x00, 0x00, 0x00, 0x00, 0x00,		// Placeholders for Hash (+18バイト)
-				0x00, 0x00, 0x00, 0x00, 0x00,		// 10
-				0x00, 0x00, 0x00, 0x00, 0x00,		// 15
-				0x00, 0x00, 0x00, 0x00, 0x00,		// 20
-				0x02, 0x08,							// Nonce INTEGER (8バイト)
-				0x00, 0x00,	0x00, 0x00, 0x00,		// Placeholders for Nonce (+40バイト)
-				0x00, 0x00, 0x00,					// 8
-				0x01, 0x01,	(byte)0xff				// RequestCertificate BOOLEAN (1バイト) value: true
-		};
 
 		// SHA-256 リクエスト情報定義
 		byte[] sha256req = {
@@ -179,20 +184,14 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 				// SHA-512
 				req = sha512req;
 	            System.arraycopy( hash, 0, req, 22, hash.length );			// ハッシュ値のセット
-	            if( nonce.length == 8 )
+	            if( nonce.length == NONCE_SIZE )
 	            	System.arraycopy( nonce, 0, req, 88, nonce.length );	// 乱数値のセット
 			} else if( hash.length == 32 ) {
 				// SHA-256
 				req = sha256req;
 	            System.arraycopy( hash, 0, req, 22, hash.length );			// ハッシュ値のセット
-	            if( nonce.length == 8 )
+	            if( nonce.length == NONCE_SIZE )
 	            	System.arraycopy( nonce, 0, req, 56, nonce.length );	// 乱数値のセット
-			} else if( hash.length == 20 ) {
-				// SHA-1
-				req = sha1req;
-	            System.arraycopy( hash, 0, req, 18, hash.length );			// ハッシュ値のセット
-	            if( nonce.length == 8 )
-	            	System.arraycopy( nonce, 0, req, 40, nonce.length );	// 乱数値のセット
 			} else {
 				// ERROR
 				return req;
@@ -300,7 +299,9 @@ public class FreeTimeStamp implements IFreeTimeStamp {
     // HTTP通信.
 	private byte[] httpConnect (
 			String url,
-			byte[] send
+			byte[] send,
+			String userid,
+			String passwd
 			)
 	{
 		byte[] back = null;

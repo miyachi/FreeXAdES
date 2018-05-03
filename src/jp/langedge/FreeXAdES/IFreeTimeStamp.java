@@ -20,6 +20,10 @@ public interface IFreeTimeStamp {
 	// -100～-999は警告
 	// -1000番台は一般エラー
 	public static final int FTERR_INVALID_ARG		= -1000;		///< 引数エラー
+	// -6000番台はFreeTimeStampのエラー
+	public static final int FTERR_TS_REQ			= -6000;		///< TSリクエスト生成エラー
+	public static final int FTERR_TS_CONNECT		= -6001;		///< HTTP接続によるT取得エラー
+	public static final int FTERR_TS_RES			= -6002;		///< TSリクエスト解析エラー
 
 	/* --------------------------------------------------------------------------- */
 	/* タイムスタンプ取得 */
