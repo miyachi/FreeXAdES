@@ -711,7 +711,7 @@ public class FreeXAdES implements IFreeXAdES {
 		for (int i=0; i<list.getLength(); i++)
 		{
 			Node node = list.item(i);
-			if(node.getNodeName() == "SignatureValue")
+			if("SignatureValue".equals(node.getNodeName()))
 			{
 				value = getC14N((Element) node, FXRF_TRANS_C14N);
 //				value = getHash(c14n);
@@ -800,19 +800,19 @@ public class FreeXAdES implements IFreeXAdES {
 		int count = 1;
 		String name = node.getLocalName();
 		Node prev = node.getPreviousSibling();
-		while(prev != null) {
-			if(prev.getLocalName() == name)
+		while(prev != null && name != null) {
+			if(name.equals(prev.getLocalName()))
 				count++;
 			prev = prev.getPreviousSibling();
 		}
 		String prefix = null;
 		String uri = node.getNamespaceURI();
 		if(uri != null) {
-			if(uri == XML_DSIG)
+			if(XML_DSIG.equals(uri))
 				prefix = "ds:";
-			else if(uri == XADES_V132)
+			else if(XADES_V132.equals(uri))
 				prefix = "xsd:";
-			else if(uri == XADES_V141)
+			else if(XADES_V141.equals(uri))
 				prefix = "xsd141:";
 		}
 		if(prefix != null)
