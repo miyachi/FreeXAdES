@@ -714,17 +714,6 @@ public class FreeXAdES implements IFreeXAdES {
 			if("SignatureValue".equals(node.getNodeName()))
 			{
 				value = getC14N((Element) node, FXRF_TRANS_C14N);
-//				value = getHash(c14n);
-//				String temp = new String(c14n);
-//				System.out.println(temp);
-				/*
-				Node target = node.getFirstChild();
-				String b64 = target.getNodeValue();
-				if(b64 == null)
-					return value;
-//				value = Base64.getMimeDecoder().decode(b64);
-				value = b64.getBytes();
-				*/
 				break;
 			}
 		}
