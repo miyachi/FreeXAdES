@@ -11,7 +11,6 @@ import java.security.*;
 import java.security.cert.*;
 import java.security.cert.Certificate;	// 明示する為にインポート
 import java.text.SimpleDateFormat;
-import java.net.*;
 
 import javax.security.cert.X509Certificate;
 import javax.xml.crypto.*;
@@ -749,7 +748,7 @@ public class FreeXAdES implements IFreeXAdES {
 		
 		String path4 = path3 + "/xsd:SignatureTimeStamp";
 		NodeList list4 = getNodesByPath(sign, path4);
-		if(list3 != null && list3.getLength() > 0)
+		if(list4 != null && list4.getLength() > 0)
 			return FXERR_EST_NODE;
 
 		Element sts = signDoc_.createElementNS(XADES_V132, "xsd:SignatureTimeStamp");
@@ -1092,13 +1091,13 @@ public class FreeXAdES implements IFreeXAdES {
 	private SignatureMethod getSignatureMethod() {
 		SignatureMethod sm = null;
 		try {
-			if(hashAlg_ == null || hashAlg_ == DigestMethod.SHA256) {
+			if(hashAlg_ == null || DigestMethod.SHA256.equals(hashAlg_)) {
 				sm = sigFact_.newSignatureMethod(RSA_SHA256, null);
-//			} else if(hashAlg_ == DigestMethod.SHA384) {	// 未サポート
+//			} else if(DigestMethod.SHA384.equals(hashAlg_)) {	// 未サポート
 //				sm = sigFact_.newSignatureMethod(RSA_SHA384, null);				
-			} else if(hashAlg_ == DigestMethod.SHA512) {
+			} else if(DigestMethod.SHA512.equals(hashAlg_)) {
 				sm = sigFact_.newSignatureMethod(RSA_SHA512, null);				
-			} else if(hashAlg_ == DigestMethod.SHA1) {
+			} else if(DigestMethod.SHA1.equals(hashAlg_)) {
 				sm = sigFact_.newSignatureMethod(SignatureMethod.RSA_SHA1, null);	// 非推奨
 			} else {
 				setLastError(FXERR_PKI_UNK_ALG);
@@ -1117,13 +1116,13 @@ public class FreeXAdES implements IFreeXAdES {
 	private DigestMethod getDigestMethod() {
 		DigestMethod dm = null;
 		try {
-			if(hashAlg_ == null || hashAlg_ == DigestMethod.SHA256) {
+			if(hashAlg_ == null || DigestMethod.SHA256.equals(hashAlg_)) {
 				dm = sigFact_.newDigestMethod(DigestMethod.SHA256, null);
-//			} else if(hashAlg_ == DigestMethod.SHA384) {	// 未サポート
+//			} else if(DigestMethod.SHA384.equals(hashAlg_)) {	// 未サポート
 //				dm = sigFact_.newDigestMethod(DigestMethod.SHA384, null);
-			} else if(hashAlg_ == DigestMethod.SHA512) {
+			} else if(DigestMethod.SHA512.equals(hashAlg_)) {
 				dm = sigFact_.newDigestMethod(DigestMethod.SHA512, null);
-			} else if(hashAlg_ == DigestMethod.SHA1) {
+			} else if(DigestMethod.SHA1.equals(hashAlg_)) {
 				dm = sigFact_.newDigestMethod(DigestMethod.SHA1, null);		// 非推奨
 			} else {
 				setLastError(FXERR_PKI_UNK_ALG);
@@ -1143,13 +1142,13 @@ public class FreeXAdES implements IFreeXAdES {
 		byte[] hash = null;
 		MessageDigest md = null;
 		try {
-			if(hashAlg_ == null || hashAlg_ == DigestMethod.SHA256 ) {
+			if(hashAlg_ == null || DigestMethod.SHA256.equals(hashAlg_) ) {
 				md = MessageDigest.getInstance("SHA-256");
-//			} else if(hashAlg_ == DigestMethod.SHA384) {	// 未サポート
+//			} else if(DigestMethod.SHA384.equals(hashAlg_)) {	// 未サポート
 //				md = MessageDigest.getInstance("SHA-384");
-			} else if(hashAlg_ == DigestMethod.SHA512) {
+			} else if(DigestMethod.SHA512.equals(hashAlg_)) {
 				md = MessageDigest.getInstance("SHA-512");
-			} else if(hashAlg_ == DigestMethod.SHA1) {
+			} else if(DigestMethod.SHA1.equals(hashAlg_)) {
 				md = MessageDigest.getInstance("SHA-1");
 			} else {
 				setLastError(FXERR_PKI_UNK_ALG);

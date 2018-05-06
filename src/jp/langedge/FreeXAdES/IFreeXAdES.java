@@ -4,8 +4,6 @@
 
 package jp.langedge.FreeXAdES;
 
-import javax.xml.crypto.dsig.DigestMethod;
-
 /**
  * IFreeXAdES : FreeXAdES main interface class.
  * @author miyachi
@@ -282,7 +280,7 @@ public interface IFreeXAdES {
 	 * @param hashAlg DigestMethod ‚ğw’è
 	 */
 	public void setHashAlg(String hashAlg);
-	
+		
 	/* --------------------------------------------------------------------------- */
 	/* ƒGƒ‰[ˆ— */
 

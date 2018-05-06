@@ -33,6 +33,8 @@ public class IFreeXAdESTest {
 	+ "  <Data Id=\"D1\" price=\"680\">書籍</Data>"
 	+ "  <Data price=\"100\" Id=\"D2\">文具(ノート)</Data>"
 	+ "</MyData>";
+
+	/*
 	private static String testXmlNg1_						// 試験用XML(NG:空名前空間)
 	= "<MyData xmlns=\"\">"
 	+ "  <Data Id=\"D1\" price=\"680\">書籍</Data>"
@@ -43,6 +45,7 @@ public class IFreeXAdESTest {
 	+ "  <Data Id=\"D1\" price=\"680\">書籍</Data>"
 	+ "  <Data price=\"100\" Id=\"D2\">文具(ノート)</Data>"
 	+ "</MyData>";
+	*/
 
 	private static String testData_	= "aaa";				// 試験用データ
 
@@ -63,7 +66,18 @@ public class IFreeXAdESTest {
 
     //////////////////////////////////////////////////////////////////////////////
 
-    /* 他の試験から呼び出される（共通） */
+	/* XAdES試験 */
+//	@Test
+	public void testFreeXAdES() {
+		testDetachedOut();
+		testDetachedIn();
+		testEnvelopingXml();
+		testEnvelopingBase64();
+		testEnveloped();
+		testEsT();
+	}
+
+	/* 他の試験から呼び出される（共通） */
     private void testVerify(String file) {
     	// ファイルから検証
     	System.out.println(" - verify XAdES.");
@@ -102,8 +116,8 @@ public class IFreeXAdESTest {
 		xades.finalize();
     }
     
-	@Test
-	public void testDetachedOut() {
+//	@Test
+    public void testDetachedOut() {
 		// 外部ファイルDetached(URI指定)の試験
 		System.out.println("testDetachedOut call");
 		String typeName = "DetachedOut";
@@ -157,7 +171,7 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
-    @Test
+//	@Test
 	public void testDetachedIn() {
 		// ファイル内Detached（Id指定）の試験
 		System.out.println("testDetachedIn call");
@@ -212,7 +226,7 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
-	@Test
+//	@Test
 	public void testEnvelopingXml() {
 		// XML形式のEnveloping（内包）の試験
 		System.out.println("testEnvelopingXml call");
@@ -265,7 +279,7 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
-	@Test
+//	@Test
 	public void testEnvelopingBase64() {
 		// Base64形式のEnveloping（内包）の試験
 		System.out.println("testEnvelopingBase64 call");
@@ -307,7 +321,7 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
-	@Test
+//	@Test
 	public void testEnveloped() {
 		// Enveloped（埋込）の試験
 		System.out.println("testEnveloped call");
@@ -362,7 +376,7 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
-	@Test
+//	@Test
 	public void testEsT() {
 		// Enveloped（埋込）の試験
 		System.out.println("testEsT call");
@@ -404,5 +418,41 @@ public class IFreeXAdESTest {
 		// 終了・解放
 		System.out.println(" - finalize.");
 		xades.finalize();
+	}
+
+	@Test
+	public void testTimeStamp() {
+		// Enveloped（埋込）の試験
+		System.out.println("testTimeStamp call");
+		
+		// インスタンス生成・初期化
+		System.out.println(" - create.");
+		int rc = IFreeTimeStamp.FTERR_NO_ERROR;
+		FreeTimeStamp timestamp = new FreeTimeStamp();
+		assertNotNull(timestamp);
+
+		// ハッシュ対象の用意
+		String target = "aaa";
+		String hashAlgName = "SHA-256";
+		byte[] hash = FreePKI.getHash(target.getBytes(), hashAlgName);
+		assertNotNull(hash);
+		
+		// タイムスタンプの取得
+		System.out.println(" - get TimeStamp.");
+		String tsUrl = "http://eswg.jnsa.org/freetsa";
+		String tsUserid = null;
+		String tsPasswd = null;
+		rc = timestamp.getFromServer(hash, tsUrl, tsUserid, tsPasswd);
+		assertEquals(rc, IFreeTimeStamp.FTERR_NO_ERROR);
+
+		// 表示
+		System.out.println(" - print TimeStamp info.");
+		String info = timestamp.getInfo();
+		assertNotNull(info);
+		System.out.println(info);
+		
+		// 終了・解放
+		System.out.println(" - finalize.");
+		timestamp.finalize();
 	}
 }

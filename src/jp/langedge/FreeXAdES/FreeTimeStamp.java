@@ -5,16 +5,14 @@
 package jp.langedge.FreeXAdES;
 
 import java.io.*;
-//import java.math.BigInteger;
 import java.util.*;
 import java.net.*;
 
 import javax.security.cert.X509Certificate;
 
-//import java.security.*;
-//import java.security.cert.*;
-//import java.security.cert.Certificate;	// 明示する為にインポート
-//import java.text.SimpleDateFormat;
+import jp.langedge.FreeXAdES.FreePKI;
+import jp.langedge.FreeXAdES.FreePKI.DERHead;
+import jp.langedge.FreeXAdES.FreePKI.DERTag;
 
 /**
  * FreeTimeStamp : FreeTimeStamp main implement class.
@@ -26,7 +24,32 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	private static final int NONCE_SIZE			= 8;	
 
 	private byte[]	token_	= null;
+	private byte[]	msgImprint_ = null;
+	private String	timeStampDate_ = null;
+	private X509Certificate		tsaCert_ = null;
+	private X509Certificate[]	certs_ = null;
 	
+	/* コンストラクタ */
+	public FreeTimeStamp() {
+		clear();
+	}
+
+	/* コンストラクタ */
+	public FreeTimeStamp(byte[] token) {
+		clear();
+		setToken(token);
+	}
+
+	/* ファイナライズ */
+	public void finalize () {
+		clear();
+	}
+
+	/* クリア */
+	private void clear() {
+		token_ = null;
+	}
+
 	/* タイムスタンプをサーバ（TSA）から取得する */
 	@Override
 	public int getFromServer(byte[] hash, String url, String userid, String passwd)
@@ -58,8 +81,26 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	@Override
 	public int setToken(byte[] token)
 	{
-		token_ = token;
-		return FTERR_NO_ERROR;
+		if(token == null)
+		{
+			// クリア
+			clear();
+			return FTERR_NO_ERROR;
+		}
+
+		// 解析
+		int rc = parseToken(token);
+		if(rc == FTERR_NO_ERROR)
+		{
+			// 解析成功
+			token_ = token;
+		}
+		else
+		{
+			// エラークリア
+			clear();
+		}
+		return rc;
 	}
 
 	/* タイムスタンプトークンがセット済みかどうかを返す */
@@ -67,36 +108,53 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	public boolean empty()
 	{
 		if(token_ == null)
-			return false;
-		return true;
+			return true;
+		return false;
 	}
 
 	/* タイムスタンプトークンのタイムスタンプ時刻を文字列で返す */
 	@Override
 	public String getTimeStampDate()
 	{
-		return null;
+		if(empty())
+			return null;
+		return timeStampDate_;
 	}
 
 	/* タイムスタンプトークンの対象ハッシュ値（messageImprint）をバイナリで返す */
 	@Override
 	public byte[] getMsgImprint()
 	{
-		return null;
+		if(empty())
+			return null;
+		return msgImprint_;
 	}
 
 	/* タイムスタンプトークンのTSA証明書を返す */
 	@Override
 	public X509Certificate getSignerCert()
 	{
-		return null;
+		if(empty())
+			return null;
+		return tsaCert_;
 	}
 
 	/* タイムスタンプトークン中の全ての証明書を配列で返す */
 	@Override
 	public X509Certificate[] getAllCerts()
 	{
-		return null;
+		if(empty())
+			return null;
+		return certs_;
+	}
+
+	/* タイムスタンプトークン概要を文字列で返す */
+	@Override
+	public String getInfo()
+	{
+		if(empty())
+			return null;
+		return "ToDo ToDo.";
 	}
 
 	/* タイムスタンプトークンをバイナリで返す */
@@ -217,6 +275,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			byte[] nonce			// 8 バイト
 			)
 	{
+		int status = 0;
 		byte[] tst = null;
 		if( res == null )
 			return null;
@@ -227,72 +286,87 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			if( res_len < 2 )
 				throw new Exception("res too short");
 
-			int idx = 0;
-			if( res[idx++] != ( DERTag.SEQUENCE | DERTag.CONSTRUCTED ) )
-				throw new Exception("format error 1");	// 最初がSEQUENCEでは無かった（TSTでは無い）
-			if( idx > res_len )
-				throw new Exception("format error 2");
-
-			if( ( res[idx] & DERTag.LEN_EXTEND ) == 0 ) {
-				// 長さが１バイト
-				len = res[idx++];
-			} else {
-				// 長さは拡張されている
-				int sz = res[idx++] & DERTag.LEN_MASK;
-				if( idx > res_len )
-					throw new Exception("format error 3");
-				if( sz > 4 || sz <= 0 )
-					throw new Exception("format error 4");
-				int sz2 = 0;
-				for( int i=sz-1; i>=0; i-- ) {
-					sz2 |= (res[idx++] & 0xff) << ( 8 * i );
-					if( idx > res_len )
-						throw new Exception("format error 5");
-				}
-				if( sz2 <= 0 || sz2 > res_len - idx )
-					throw new Exception("format error 6");
-				len = sz2;
+			ASN1_OBJ tsr, obj, obj2;
+			tsr = FreePKI.parseObj(res, 0);
+			if(tsr == null)
+				throw new Exception("TSResponse parse error");
+			if(tsr.tag_ != DERTag.SEQUENCE || tsr.construct_ != true)
+				throw new Exception("TSResponse format error 1");
+			// TSResponseの解析
+			obj = FreePKI.parseObj(tsr.value_, 0);
+			if(obj == null)
+				throw new Exception("TSResponse format error 2");
+			if(obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
+				throw new Exception("TSResponse format error 3");
+			// statusの取得
+			obj2 = FreePKI.parseObj(obj.value_, 0);
+			if(obj2 == null)
+				throw new Exception("TSResponse format error 4");
+			if(obj2.tag_ != DERTag.INTEGER)
+				throw new Exception("TSResponse format error 5");
+			for( int j=obj2.len_-1; j>=0; j-- ) {
+				status |= (obj2.value_[j] & 0xff) << ( 8 * j );
 			}
-			if( idx > res_len )
-				throw new Exception("format error 7");
+			if( status != TSResStatus.GRANTED && status != TSResStatus.GRANT_W_MODS )
+				throw new Exception("invalid server res status = " + status);	// サーバからエラーが返った
 
-			// Statusの取得
-			int status = 0;
-			if( res[idx++] != ( DERTag.SEQUENCE | DERTag.CONSTRUCTED ) )
-				throw new Exception("format error 8");	// 次がSEQUENCEでは無かった
-			if( idx > res_len )
-				throw new Exception("format error 9");
-			if( ( res[idx++] & DERTag.LEN_EXTEND ) != 0 )
-				throw new Exception("format error 10");	// 拡張はとりあえず対応しない
-			if( idx > res_len )
-				throw new Exception("format error 11");
-			if( res[idx++] != DERTag.INTEGER )
-				throw new Exception("format error 12");	// StatusはINTEGER
-			if( idx > res_len )
-				throw new Exception("format error 13");
-			int isz = res[idx++];						// サイズ
-			if( idx > res_len )
-				throw new Exception("format error 14");
-			for( int j=isz-1; j>=0; j-- ) {
-				status |= (res[idx++] & 0xff) << ( 8 * j );
-				if( idx > res_len )
-					throw new Exception("format error 15");
-			}
-			if( status != PKIStatus.GRANTED && status != PKIStatus.GRANT_W_MODS )
-				throw new Exception("invalid server res status");	// サーバからエラーが返った
-
-			// 残りがTSTのはず
-			len = (int)(res_len - idx);
-			if( len > res_len )
+			// 残りがTST
+			len = tsr.len_ - obj.pos_;
+			if( len <= 0 )
 				throw new Exception("format error 16");
 			tst = new byte[len];
-            System.arraycopy( res, idx, tst, 0, len );	// TSTのコピー
+            System.arraycopy( tsr.value_, obj.pos_, tst, 0, len );	// TSTのコピー
 
 		} catch (Exception e) {
        	    System.out.println(e);
-	    	System.out.println("結果解析エラー");
+//	    	System.out.println("結果解析エラー");
 		}
 		return tst;
+	}
+	
+	/* タイムスタンプトークンの解析 */
+	private int parseToken (byte[] token)
+	{
+		if(token == null)
+			return FTERR_INVALID_TST;
+
+		try {
+			ASN1_OBJ tst, obj, obj2;
+			tst = FreePKI.parseObj(token, 0);
+			if(tst == null)
+				throw new Exception("TimeStampToken parse error");
+			if(tst.tag_ != DERTag.SEQUENCE || tst.construct_ != true)
+				throw new Exception("TimeStampToken format error 1");
+			obj = FreePKI.parseObj(tst.value_, 0);
+			if(obj == null)
+				throw new Exception("TimeStampToken format error 2");
+			if(obj.tag_ != DERTag.OBJECT_IDENTIFIER || obj.construct_ != false)
+				throw new Exception("TimeStampToken format error 3");
+			obj = FreePKI.parseObj(tst.value_, obj.pos_);
+			if(obj == null)
+				throw new Exception("TimeStampToken format error 2");
+			if(obj.class_ != DERHead.CLS_CONTEXTSPECIFIC || obj.tag_ != 0 || obj.construct_ != true)
+				throw new Exception("TimeStampToken format error 3");
+			obj = FreePKI.parseObj(obj.value_, 0);
+			if(obj == null)
+				throw new Exception("TimeStampToken format error 2");
+			if(obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
+				throw new Exception("TimeStampToken format error 1");
+			obj2 = FreePKI.parseObj(obj.value_, 0);
+			if(obj2 == null)
+				throw new Exception("TimeStampToken format error 2");
+			if(obj2.tag_ != DERTag.INTEGER || obj2.construct_ != false)
+				throw new Exception("TimeStampToken format error 3");
+			obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);
+			if(obj2 == null)
+				throw new Exception("TimeStampToken format error 2");
+
+		} catch (Exception e) {
+       	    System.out.println(e);
+//	    	System.out.println("結果解析エラー");
+		}
+
+		return FTERR_NO_ERROR;
 	}
 
     // ---------------------------------------------------------------------------
@@ -358,9 +432,9 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 		return back;
 	}
 
-    // ---------------------------------------------------------------------------
+	// ---------------------------------------------------------------------------
     // タイムスタンプレスポンスのステータス.
-	public interface PKIStatus {
+	public interface TSResStatus {
 	    public static final int	GRANTED			= 0;	// TSTを含む
 	    public static final int	GRANT_W_MODS	= 1;	// TSTを含み、プライベート拡張を含む
 	    public static final int	REJECTION		= 2;	// TSTを含まず、拒否された
@@ -370,44 +444,84 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	}
 
     // ---------------------------------------------------------------------------
-    // ASN.1/BER(DER)タグ定義.
-	public interface DERTag {
-		// タグ
-	    public static final byte BOOLEAN             = 0x01;
-	    public static final byte INTEGER             = 0x02;
-	    public static final byte BIT_STRING          = 0x03;
-	    public static final byte OCTET_STRING        = 0x04;
-	    public static final byte NULL                = 0x05;
-	    public static final byte OBJECT_IDENTIFIER   = 0x06;
-	    public static final byte EXTERNAL            = 0x08;
-	    public static final byte ENUMERATED          = 0x0a;
-	    public static final byte SEQUENCE            = 0x10;
-	    public static final byte SET                 = 0x11;
-	    public static final byte NUMERIC_STRING      = 0x12;
-	    public static final byte PRINTABLE_STRING    = 0x13;
-	    public static final byte T61_STRING          = 0x14;
-	    public static final byte VIDEOTEX_STRING     = 0x15;
-	    public static final byte IA5_STRING          = 0x16;
-	    public static final byte UTC_TIME            = 0x17;
-	    public static final byte GENERALIZED_TIME    = 0x18;
-	    public static final byte GRAPHIC_STRING      = 0x19;
-	    public static final byte VISIBLE_STRING      = 0x1a;
-	    public static final byte GENERAL_STRING      = 0x1b;
-	    public static final byte UNIVERSAL_STRING    = 0x1c;
-	    public static final byte BMP_STRING          = 0x1e;
-	    public static final byte UTF8_STRING         = 0x0c;
-	    // クラス・構造化フラグ
-	    public static final byte CONSTRUCTED         = 0x20;
-	    public static final byte APPLICATION         = 0x40;
-	    public static final byte CONTEXT_SPECIFIC    = (byte)0x80;
-	    public static final byte PRIVATE             = (byte)0xc0;
-	    // マスク
-	    public static final byte TAGNUM_MASK         = 0x1f;
-	    public static final byte TAGCONSTFLAG_MASK   = 0x20;
-	    public static final byte TAGCLASS_MASK       = (byte)0xC0;
-	    // 値長
-	    public static final byte LEN_MASK            = 0x1f;
-	    public static final byte LEN_EXTEND          = (byte)0x80;
-	}
+	// タイムスタンプトークンASN.1定義
+	/*
+
+		// ------------------------------------------------------------------------------
+		// 以下はタイムスタンプ（RFC3161）より
+
+		TimeStampToken ::= ContentInfo
+		    -- contentType は、[CMS] で定義されている id-signedData である。
+		    -- content は、[CMS] で定義されている SignedData である。
+		    -- SignedData 中の eContentType は、id-ct-TSTInfo である。
+		    -- SignedData 中の eContentは、TSTInfo である。
+
+		TSTInfo ::= SEQUENCE { 
+		    version INTEGER { v1(1) }, 
+		    policy TSAPolicyId, 
+		    messageImprint MessageImprint, 
+		    -- TimeStampReq の同じフィールドの値と同じ値を持たなければならない（MUST）。
+		    serialNumber INTEGER, 
+		    -- タイムスタンプユーザは、160 ビットまでの整数に適応する準備をしておかなければならない（MUST）。
+		    genTime GeneralizedTime, 
+		    accuracy Accuracy OPTIONAL, 
+		    ordering BOOLEAN DEFAULT FALSE, 
+		    nonce INTEGER OPTIONAL, 
+		    -- TimeStampReq に同じフィールドがあった場合、同じ値でなければならない（MUST）。
+		    tsa [0] GeneralName OPTIONAL, 
+		    extensions [1] IMPLICIT Extensions OPTIONAL }
+
+		Accuracy ::= SEQUENCE { 
+		    seconds INTEGER OPTIONAL, 
+		    millis [0] INTEGER (1..999) OPTIONAL, 
+		    micros [1] INTEGER (1..999) OPTIONAL }
+
+		SignedData ::= SEQUENCE {
+		    version CMSVersion,
+		    digestAlgorithms DigestAlgorithmIdentifiers,
+		    encapContentInfo EncapsulatedContentInfo,
+		    certificates [0] IMPLICIT CertificateSet OPTIONAL,
+		    crls [1] IMPLICIT CertificateRevocationLists OPTIONAL,
+		    signerInfos SignerInfos }
+
+		DigestAlgorithmIdentifiers ::= SET OF DigestAlgorithmIdentifier
+
+		// ------------------------------------------------------------------------------
+		// 以下はCMS（RFC3852）より
+
+		SignerInfos ::= SET OF SignerInfo
+
+		EncapsulatedContentInfo ::= SEQUENCE {
+		    eContentType ContentType,
+		    eContent [0] EXPLICIT OCTET STRING OPTIONAL }
+
+		ContentType ::= OBJECT IDENTIFIER
+
+		SignerInfo ::= SEQUENCE {
+			version               CMSVersion,
+			sid                   SignerIdentifier,
+			digestAlgorithm       DigestAlgorithmIdentifier,
+			signedAttrs           [0] IMPLICIT SignedAttributes OPTIONAL,
+			signatureAlgorithm    SignatureAlgorithmIdentifier,
+			signature             SignatureValue,
+			unsignedAttrs         [1] IMPLICIT UnsignedAttributes OPTIONAL }
+
+		SignerIdentifier ::= CHOICE {
+			issuerAndSerialNumber IssuerAndSerialNumber,
+			subjectKeyIdentifier  [0] SubjectKeyIdentifier }
+
+		SignedAttributes ::= SET SIZE (1..MAX) OF Attribute
+
+		UnsignedAttributes ::= SET SIZE (1..MAX) OF Attribute
+
+		Attribute ::= SEQUENCE {
+			attrType     OBJECT IDENTIFIER,
+			attrValues   SET OF AttributeValue }
+
+		AttributeValue ::= ANY
+
+		SignatureValue ::= OCTET STRING
+
+	  */
 
 }

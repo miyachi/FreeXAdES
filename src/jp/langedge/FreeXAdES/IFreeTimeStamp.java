@@ -24,6 +24,7 @@ public interface IFreeTimeStamp {
 	public static final int FTERR_TS_REQ			= -6000;		///< TSリクエスト生成エラー
 	public static final int FTERR_TS_CONNECT		= -6001;		///< HTTP接続によるT取得エラー
 	public static final int FTERR_TS_RES			= -6002;		///< TSリクエスト解析エラー
+	public static final int FTERR_INVALID_TST		= -6010;		///< TSトークン解析エラー
 
 	/* --------------------------------------------------------------------------- */
 	/* タイムスタンプ取得 */
@@ -76,6 +77,12 @@ public interface IFreeTimeStamp {
 	 * @return セット済みなら証明書配列を、未セットなら null を返す
 	 */
 	public X509Certificate[] getAllCerts();
+
+	/** タイムスタンプトークン概要を文字列で返す
+	 * タイムスタンプトークンの概要を文字列で返す。
+	 * @return セット済みならタイムスタンプトークン情報を、未セットなら null を返す
+	 */
+	public String getInfo();
 
 	/** タイムスタンプトークンをバイナリで返す
 	 * タイムスタンプトークンをバイナリで返す。
