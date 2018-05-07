@@ -74,7 +74,6 @@ public class IFreeXAdESTest {
 		testEnvelopingXml();
 		testEnvelopingBase64();
 		testEnveloped();
-		testEsT();
 	}
 
 	/* 他の試験から呼び出される（共通） */
@@ -111,6 +110,29 @@ public class IFreeXAdESTest {
 			break;
 		}    	
 		assertEquals(rc, IFreeXAdES.FXVS_VALID);
+
+		int level = xades.getVerifyLevel();
+		switch(level)
+		{
+		case IFreeXAdES.FXL_NONE:		// XAdES/XmlDsig無し
+			System.out.println(" - XAdES Level: no sign");
+			break;
+		case IFreeXAdES.FXL_XMLDSIG:	// XmlDsig (非XAdES)
+			System.out.println(" - XAdES Level: XmlDsig");
+			break;
+		case IFreeXAdES.FXL_XAdES_B:	// XAdES-B (XAdES-BES/EPES)
+			System.out.println(" - XAdES Level: XAdES-B");
+			break;
+		case IFreeXAdES.FXL_XAdES_T:	// XAdES-T
+			System.out.println(" - XAdES Level: XAdES-T");
+			break;
+		case IFreeXAdES.FXL_XAdES_LT:	// XAdES-LT (XAdES-X Long)
+			System.out.println(" - XAdES Level: XAdES-LT");
+			break;
+		case IFreeXAdES.FXL_XAdES_LTA:	// XAdES-LTA (XAdES-A)
+			System.out.println(" - XAdES Level: XAdES-LTA");
+			break;
+		}
 
 		// 終了・解放
 		xades.finalize();
@@ -376,7 +398,7 @@ public class IFreeXAdESTest {
 		xades.finalize();
 	}
 
-//	@Test
+	@Test
 	public void testEsT() {
 		// Enveloped（埋込）の試験
 		System.out.println("testEsT call");

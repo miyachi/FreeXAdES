@@ -42,6 +42,7 @@ public class FreeXAdES implements IFreeXAdES {
 	private List<Reference> refs_ = null;					// 参照
 	private List<XMLObject> objs_ = null;					// オブジェクト
 	private String rootDir_ = null;							// ベースになるルートディレクトリ
+	private int level_ = FXL_NONE;
 	
 	/* --------------------------------------------------------------------------- */
 	/* コンストラクタ等 */
@@ -658,16 +659,23 @@ public class FreeXAdES implements IFreeXAdES {
 	{
 		int rc = FXVS_NO_SIGN;
 
-		// Signature要素を探す
-		NodeList nl = signDoc_.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
-		if (nl.getLength() == 0)
-		{
-			// Signature要素が見つからない
-            return setLastError(rc);
+		// Signature要素
+		Node target = null;
+		if(xpath == null) {
+			target = signDoc_.getDocumentElement();
+		} else {
+			XPathFactory xpf = XPathFactory.newInstance();
+			XPath xp = xpf.newXPath();
+			try {
+				XPathExpression expr = xp.compile(xpath);
+				target = (Node)expr.evaluate(signDoc_, XPathConstants.NODE);
+			} catch (XPathExpressionException e) {
+				e.printStackTrace();
+				return setLastError(FXERR_XML_XPATH);
+			}
 		}
 
 		// タイムスタンプ対象ハッシュ値の取得
-		Node target = nl.item(0);	// 仮：最初の署名に署名タイムスタンプを付与する
 		byte[] sigValue = getSignatureValue(target);
 		if(sigValue == null)
 			return setLastError(FXERR_GET_SIGVALUE);
@@ -706,6 +714,23 @@ public class FreeXAdES implements IFreeXAdES {
 			}
 		}
 		return value;
+	}
+
+	/* TSTの取得 */
+	private byte[] getEstTst(Node sign)
+	{
+		byte[] tst = null;
+		String path = "ds:Object/xsd:QualifyingProperties/xsd:UnsignedProperties/xsd:UnsignedSignatureProperties";
+		path += "/xsd:SignatureTimeStamp/xsd:EncapsulatedTimeStamp";
+		NodeList list = getNodesByPath(sign, path);
+		if(list == null || list.getLength() <= 0)
+			return tst;
+		Node sigts = list.item(0);		// 1つだけ
+		String b64tst = sigts.getTextContent();
+		if(b64tst == null)
+			return tst;
+		tst = Base64.getMimeDecoder().decode(b64tst);
+		return tst;
 	}
 
 	/* TSTの埋め込み */
@@ -853,7 +878,7 @@ public class FreeXAdES implements IFreeXAdES {
         try {
         	list = (NodeList)xpath.evaluate(path, signDoc_, XPathConstants.NODESET);
         	int num = list.getLength();
-        	System.out.println( "DEBUG: num = " + num );
+//        	System.out.println( "DEBUG: num = " + num );
 		} catch (XPathExpressionException e) {
 			e.printStackTrace();
 			list = null;
@@ -869,20 +894,47 @@ public class FreeXAdES implements IFreeXAdES {
 	public int verifySign(int fxvFlag, String xpath) {
 		// FXVS_VALID / FXVS_INVALID / FXVS_NO_SIGN
 		int rc = FXVS_NO_SIGN;
+		level_ = FXL_NONE;
 
-		// Signature要素を探す
-		NodeList nl = signDoc_.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
-		if (nl.getLength() == 0)
+		NodeList nl = null;
+		Node xtarget = null;
+		int len = 0;
+		if(xpath == null)
 		{
-			// Signature要素が見つからない
-            return rc;
+			// Signature要素を探す
+			nl = signDoc_.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
+			if (nl.getLength() == 0)
+			{
+				// Signature要素が見つからない
+	            return rc;
+			}
+			len = nl.getLength();
+		}
+		else
+		{
+			// 指定署名のみ
+			XPathFactory xpf = XPathFactory.newInstance();
+			XPath xp = xpf.newXPath();
+			try {
+				XPathExpression expr = xp.compile(xpath);
+				xtarget = (Node)expr.evaluate(signDoc_, XPathConstants.NODE);
+				len = 1;
+			} catch (XPathExpressionException e) {
+				e.printStackTrace();
+				return setLastError(FXERR_XML_XPATH);
+			}
 		}
 
-		for(int i=0; i<nl.getLength(); i++)
+		// 全てのSignature要素を検証する
+		for(int i=0; i<len; i++)
 		{
 			try {
 				// 検証対象と鍵取得クラスを取得
-				Node target = nl.item(i);
+				Node target = null;
+				if(nl != null)
+					target = nl.item(i);
+				else
+					target = xtarget;
 				DOMValidateContext valContext = new DOMValidateContext(new KeyValueKeySelector(), target);
 				
 				// 現在位置をセット(外部Detached用)
@@ -926,6 +978,31 @@ public class FreeXAdES implements IFreeXAdES {
 					// 検証成功
 					rc = FXVS_VALID;
 				}
+				if(level_ < FXL_XAdES_B)
+					level_ = FXL_XAdES_B;
+				// ES-T(タイムスタンプトークン)確認
+				byte[] tst = getEstTst(target);
+				if(tst != null)
+				{
+					// ES-T検証
+					FreeTimeStamp token = new FreeTimeStamp();
+					int rc2 = token.setToken(tst);
+					if(rc2 == FreeTimeStamp.FTERR_NO_ERROR)
+					{
+						byte[] sigValue = getSignatureValue(target);
+						if(sigValue == null)
+							return setLastError(FXERR_GET_SIGVALUE);
+						byte[] hash = getHash(sigValue);
+						if(token.verify(hash) != FreeTimeStamp.FTERR_NO_ERROR)
+							rc = FXVS_INVALID;						
+						if(level_ < FXL_XAdES_T)
+							level_ = FXL_XAdES_T;
+					}
+					else
+					{
+						rc = FXVS_INVALID;
+					}
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 				rc = FXVS_INVALID;
@@ -940,6 +1017,13 @@ public class FreeXAdES implements IFreeXAdES {
 		
 		return rc;
 	}
+
+	/* 検証結果から署名レベルを返す */
+	@Override
+	public int getVerifyLevel()
+	{
+		return level_;
+	}	
 
     // ---------------------------------------------------------------------------
     // 検証用の鍵取得クラス（最もシンプルな実装）

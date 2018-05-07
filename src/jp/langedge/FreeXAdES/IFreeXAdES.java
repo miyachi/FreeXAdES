@@ -264,6 +264,12 @@ public interface IFreeXAdES {
 	 */
 	public int verifySign(int fxvFlag, String xpath);
 
+	/** 検証結果から署名レベルを返す
+	 * 検証後に最大署名レベルを返す、複数署名がある場合にはもっとも長期署名レベルが大きいものを返す。
+	 * @return FXA_LEVEL 署名レベルを返す
+	 */
+	public int getVerifyLevel();
+	
 	/* --------------------------------------------------------------------------- */
 	/* 補助 */
 

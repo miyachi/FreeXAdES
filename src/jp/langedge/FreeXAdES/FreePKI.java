@@ -35,12 +35,29 @@ public class FreePKI {
         return hash;
 	}
 	
-	// ---------------------------------------------------------------------------
-    // ASN.1/BER(DER)オブジェクト解析.
+	/** ASN.1/BER(DER)オブジェクト解析
+	 * ASN.1/BER(DER)の1オブジェクトを解析して情報を返す
+	 * @param data ASN.1/BER(DER)をバイナリで指定する
+	 * @param pos 解析開始位置を指定する
+	 * @return ASN.1オブジェクト情報が返る
+	 */
 	public static ASN1_OBJ parseObj(byte[] data, int pos)
+	{
+		return parseObj(data, pos, false);
+	}
+	
+	/** ASN.1/BER(DER)オブジェクト解析
+	 * ASN.1/BER(DER)の1オブジェクトを解析して情報を返す
+	 * @param data ASN.1/BER(DER)をバイナリで指定する
+	 * @param pos 解析開始位置を指定する
+	 * @param body falseの場合には値のみ、trueならオブジェクト全体を返す
+	 * @return ASN.1オブジェクト情報が返る
+	 */
+	public static ASN1_OBJ parseObj(byte[] data, int pos, boolean body)
 	{
 		if(data == null || data.length < 2)
 			return null;
+		int start = pos;
 		int max = data.length;
 
 		ASN1_OBJ obj = new ASN1_OBJ();
@@ -75,13 +92,99 @@ public class FreePKI {
 		}
 		if(obj.len_ <= 0)
 			return null;
-		
-		obj.value_ = new byte[obj.len_];
-        System.arraycopy( data, pos, obj.value_, 0, obj.len_ );	// valueのコピー
+
+		if(body)
+		{
+			int len = pos - start + obj.len_;
+			obj.value_ = new byte[len];
+	        System.arraycopy( data, start, obj.value_, 0, len );	// valueのコピー
+		}
+		else
+		{
+			obj.value_ = new byte[obj.len_];
+	        System.arraycopy( data, pos, obj.value_, 0, obj.len_ );	// valueのコピー
+		}
         obj.pos_  = pos + obj.len_;
 		return obj;
 	}
+
+	/** OID一致のチェック
+	 * OIDバイナリと指定OIDが同じかどうかを返す
+	 * @param value ASN.1/BER(DER)のOIDをバイナリで指定する
+	 * @param oid 比較するOIDを指定する
+	 * @return 一致の場合にはtrueが返る
+	 */
+	public static boolean isOID(byte[] value, byte[] oid)
+	{
+		return isEqual(value, oid);
+	}
 	
+	/** バイト配列一致のチェック
+	 * 2つのバイト配列が同じかどうかを返す
+	 * @param arg1 バイト配列1を指定する
+	 * @param arg2 バイト配列2を指定す
+	 * @return 一致の場合にはtrueが返る
+	 */
+	public static boolean isEqual(byte[] arg1, byte[] arg2)
+	{
+		if(arg1 == null || arg2 == null)
+			return false;
+		if(arg1.length != arg2.length)		
+			return false;
+		if(arg1.length <= 0)		
+			return false;
+		for(int i=0; i<arg1.length; i++)
+		{
+			if(arg1[i] != arg2[i])
+				return false;
+		}
+		return true;		
+	}
+	
+	/** バイト配列のHEX文字列化
+	 * バイト配列をHEX文字列化して返す
+	 * @param arg バイト配列を指定する
+	 * @return HEX文字列が返る
+	 */
+	public static String toHex(byte[] arg)
+	{
+		if(arg == null || arg.length <= 0)
+			return null;
+		String hex = "";
+		for(int i=0; i<arg.length; i++)
+		{
+			hex += String.format("%02x", arg[i]);
+		}
+		return hex;	
+	}
+	
+	// ---------------------------------------------------------------------------
+    // OID定義.
+	public interface OID {
+	    public static final byte[] SIGNED_DATA =		// 1.2.840.113549.1.7.2
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x07, 0x02 };
+	    public static final byte[] CONTENT_TYPE =		// 1.2.840.113549.1.9.3
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x09, 0x03 };
+	    public static final byte[] MESSAGE_DIGEST =		// 1.2.840.113549.1.9.4
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x09, 0x04 };
+	    public static final byte[] SIGNING_TIME =		// 1.2.840.113549.1.9.5
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x09, 0x05 };
+	    public static final byte[] TIMESTAMP_TOKEN =	// 1.2.840.113549.1.9.16.1.4
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x09, 0x10, 0x01, 0x04 };
+	    public static final byte[] SIGNING_CERT =		// 1.2.840.113549.1.9.16.2.12
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x09, 0x10, 0x02, 0x0c };
+	    public static final byte[] RSA_ENC =			// 1.2.840.113549.1.1.1
+	    	{ 0x2a, (byte)0x86, 0x48, (byte)0x86, (byte)0xf7, 0x0d, 0x01, 0x01, 0x01 };
+	    public static final byte[] SHA_1 =				// 1.3.14.3.2.26
+	    	{ 0x2b, 0x0e, 0x03, 0x02, 0x1a };
+	    public static final byte[] SHA_256 =			// 2.16.840.1.101.3.4.2.1
+	    	{ 0x60, (byte)0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01 };
+	    public static final byte[] SHA_384 =			// 2.16.840.1.101.3.4.2.2
+	    	{ 0x60, (byte)0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02 };
+	    public static final byte[] SHA_512 =			// 2.16.840.1.101.3.4.2.3
+	    	{ 0x60, (byte)0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03 }; 
+	}
+
 	// ---------------------------------------------------------------------------
     // ASN.1/BER(DER)ヘッダ定義.
 	public interface DERHead {

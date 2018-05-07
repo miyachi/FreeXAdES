@@ -4,7 +4,7 @@
 
 package jp.langedge.FreeXAdES;
 
-import javax.security.cert.X509Certificate;
+import java.security.cert.X509Certificate;
 
 /**
  * IFreeTimeStamp : FreeTimeStamp main interface class.
@@ -25,6 +25,10 @@ public interface IFreeTimeStamp {
 	public static final int FTERR_TS_CONNECT		= -6001;		///< HTTP接続によるT取得エラー
 	public static final int FTERR_TS_RES			= -6002;		///< TSリクエスト解析エラー
 	public static final int FTERR_INVALID_TST		= -6010;		///< TSトークン解析エラー
+	public static final int FTERR_INVALID_TSTINFO	= -6011;		///< TSTInfo解析エラー
+	public static final int FTERR_INVALID_SIGNINFO	= -6012;		///< SignerInfo解析エラー
+	public static final int FTERR_INVALID_TSACERT	= -6013;		///< TSA証明書が見つからないエラー
+	public static final int FTERR_TS_DIGEST			= -6100;		///< TSTのダイジェスト不一致エラー
 
 	/* --------------------------------------------------------------------------- */
 	/* タイムスタンプ取得 */
@@ -90,11 +94,12 @@ public interface IFreeTimeStamp {
 	 */
 	public byte[] getToken();
 
-	/** タイムスタンプトークンの署名を検証して結果を返す
-	 * タイムスタンプトークンへのTSA証明書による署名を検証して結果を返す。
+	/** タイムスタンプトークンを検証して結果を返す
+	 * タイムスタンプトークンへのTSA証明書による署名等を検証して結果を返す。
+	 * @param hash タイムスタンプ対象のハッシュ値をバイナリで指定
 	 * @return エラーなし FTERR_NO_ERROR が返る
 	 * @return エラーあり FTERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
-	public int verify();
+	public int verify(byte[] hash);
 
 }
