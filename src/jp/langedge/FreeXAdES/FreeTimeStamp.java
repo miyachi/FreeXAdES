@@ -33,7 +33,10 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	private X509Certificate			tsaCert_ = null;	// TSA(署名)証明書
 	private List<X509Certificate>	certs_   = null;	// 証明書群
 
+	private byte[]	tstInfo_ = null;					// TSTInfo
 	private byte[]	signedAtrb_ = null;					// SignedAttribute
+	private String	hashAlg_ = null;					// ハッシュアルゴリズム
+	private byte[]	hash_ = null;
 	private String	signAlg_ = null;					// 署名アルゴリズム
 	private byte[]	signature_ = null;					// 署名値
 	
@@ -56,10 +59,18 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	/* クリア */
 	private void clear() {
 		token_ = null;
+		msgImprint_ = null;
+		timeStampDate_ = null;
 		tsaCert_ = null;
 		if(certs_ == null)
 			certs_ = new ArrayList<X509Certificate>();
 		certs_.clear();
+		tstInfo_ = null;
+		signedAtrb_ = null;
+		hashAlg_ = null;
+		hash_ = null;
+		signAlg_ = null;
+		signature_ = null;
 		
 	}
 
@@ -465,6 +476,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 		if(info == null)
 			return FTERR_INVALID_TSTINFO;
 
+		tstInfo_ = null;
 		try {
 			ASN1_OBJ tstinfo, obj, obj2, obj3;
 			tstinfo = FreePKI.parseObj(info, 0);
@@ -509,8 +521,11 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 //	    	System.out.println("結果解析エラー");
 			rc = FTERR_INVALID_TSTINFO;
 		}
+		if(rc == FTERR_NO_ERROR)
+			tstInfo_ = info;
 		return rc;
 	}
+
 
 	/* SignerInfo情報の解析 */
 	private int parseSignerInfo (byte[] info)
@@ -520,7 +535,8 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			return FTERR_INVALID_SIGNINFO;
 
 		signedAtrb_ = null;
-		signAlg_ = "SHA256WithRSA";
+		hashAlg_ = null;
+		signAlg_ = null;
 		signature_ = null;
 
 		// SignerInfo解析
@@ -545,25 +561,35 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			if(obj2 == null || obj2.tag_ != DERTag.OBJECT_IDENTIFIER || obj2.construct_ != false)
 				throw new Exception("SignerInfo format error 5");
 			// 署名アルゴリズム
-			if(FreePKI.isOID(obj2.value_, OID.SHA_256))
+			if(FreePKI.isOID(obj2.value_, OID.SHA_256)) {
+				hashAlg_ = "SHA-256";
 				signAlg_ = "SHA256WithRSA";
-			else if(FreePKI.isOID(obj2.value_, OID.SHA_384))
+			} else if(FreePKI.isOID(obj2.value_, OID.SHA_384)) {
+				hashAlg_ = "SHA-384";
 				signAlg_ = "SHA384WithRSA";
-			else if(FreePKI.isOID(obj2.value_, OID.SHA_512))
+			} else if(FreePKI.isOID(obj2.value_, OID.SHA_512)) {
+				hashAlg_ = "SHA-512";
 				signAlg_ = "SHA512WithRSA";
-			else if(FreePKI.isOID(obj2.value_, OID.SHA_1))
+			} else if(FreePKI.isOID(obj2.value_, OID.SHA_1)) {
+				hashAlg_ = "SHA-1";
 				signAlg_ = "SHA1WithRSA";
+			} else
+				throw new Exception("unknown algorithm");
 			// signedAttrs check
 			obj = FreePKI.parseObj(signerinfo.value_, obj.pos_, true);
 			if(obj == null || obj.construct_ != true)
 				throw new Exception("SignerInfo format error 6");
 			if(obj.class_ == DERHead.CLS_CONTEXTSPECIFIC || obj.tag_ == 0)
 			{
+				// 署名対象
+				signedAtrb_ = obj.value_;
+				signedAtrb_[0] = DERTag.SET | DERHead.CONSTRUCTED;	// 検証の為に最初のCONTEXTSPECIFICをSETに変更する
 				// signedAttrs
-				signedAtrb_ = obj.value_;	// 署名対象属性
-				signedAtrb_[0] = 0x31;		// 検証の為に最初のCONTEXTSPECIFICをSETに変更する
+				rc = parseSignedAtrb(signedAtrb_);
+				if(rc != FTERR_NO_ERROR)
+					return rc;
+				// 次
 				obj = FreePKI.parseObj(signerinfo.value_, obj.pos_);
-				// skip
 			}
 			// signatureAlgorithm
 			if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
@@ -610,6 +636,54 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 		}
 		if(tsaCert_ == null)
 			rc = FTERR_INVALID_TSACERT;
+		return rc;
+	}
+
+	/* TSTInfo情報の解析 */
+	private int parseSignedAtrb (byte[] atrb)
+	{
+		int rc = FTERR_NO_ERROR;
+		if(atrb == null)
+			return FTERR_INVALID_SIGNINFO;
+
+		hash_ = null;
+		try {
+			ASN1_OBJ signatrb, obj, obj2, obj3;
+			signatrb = FreePKI.parseObj(atrb, 0);
+			if(signatrb == null || signatrb.tag_ != DERTag.SET || signatrb.construct_ != true)
+				throw new Exception("SignedAtrb format error 1");
+			obj = new ASN1_OBJ();
+			obj.pos_ = 0;
+			while(obj.pos_ < signatrb.value_.length)
+			{
+				obj = FreePKI.parseObj(signatrb.value_, obj.pos_);
+				if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
+					continue;
+				obj2 = FreePKI.parseObj(obj.value_, 0);
+				if(obj2 == null || obj2.tag_ != DERTag.OBJECT_IDENTIFIER || obj2.construct_ != false)
+					continue;
+				if(!FreePKI.isOID(obj2.value_, OID.MESSAGE_DIGEST))
+					continue;
+				obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);
+				if(obj2 == null || obj2.tag_ != DERTag.SET || obj2.construct_ != true)
+					continue;
+				obj3 = FreePKI.parseObj(obj2.value_, 0);
+				if(obj3 == null || obj3.tag_ != DERTag.OCTET_STRING || obj3.construct_ != false)
+					continue;
+				hash_ = obj3.value_;
+				break;
+			}
+		} catch (Exception e) {
+       	    System.out.println(e);
+//	    	System.out.println("結果解析エラー");
+			rc = FTERR_INVALID_TSTINFO;
+		}
+		if(hash_ != null)
+		{
+			byte[] hash = FreePKI.getHash(tstInfo_, hashAlg_);
+			if(!FreePKI.isEqual(hash, hash_))
+				rc = FTERR_TSTINFO_DIGEST;
+		}
 		return rc;
 	}
 

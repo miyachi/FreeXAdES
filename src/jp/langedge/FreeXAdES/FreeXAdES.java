@@ -877,7 +877,7 @@ public class FreeXAdES implements IFreeXAdES {
         });
         try {
         	list = (NodeList)xpath.evaluate(path, signDoc_, XPathConstants.NODESET);
-        	int num = list.getLength();
+//        	int num = list.getLength();
 //        	System.out.println( "DEBUG: num = " + num );
 		} catch (XPathExpressionException e) {
 			e.printStackTrace();

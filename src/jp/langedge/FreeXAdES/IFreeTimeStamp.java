@@ -29,6 +29,7 @@ public interface IFreeTimeStamp {
 	public static final int FTERR_INVALID_SIGNINFO	= -6012;		///< SignerInfo解析エラー
 	public static final int FTERR_INVALID_TSACERT	= -6013;		///< TSA証明書が見つからないエラー
 	public static final int FTERR_TS_DIGEST			= -6100;		///< TSTのダイジェスト不一致エラー
+	public static final int FTERR_TSTINFO_DIGEST	= -6101;		///< TSTInfoのダイジェスト不一致エラー
 
 	/* --------------------------------------------------------------------------- */
 	/* タイムスタンプ取得 */
