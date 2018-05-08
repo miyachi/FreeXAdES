@@ -469,6 +469,11 @@ public class IFreeXAdESTest {
 		rc = timestamp.getFromServer(hash, tsUrl_, tsUserid_, tsPasswd_);
 		assertEquals(rc, IFreeTimeStamp.FTERR_NO_ERROR);
 
+		// タイムスタンプの検証
+		System.out.println(" - verify TimeStamp.");
+		rc = timestamp.verify(hash);
+		assertEquals(rc, IFreeTimeStamp.FTERR_NO_ERROR);
+
 		// 表示
 		System.out.println(" - print TimeStamp info.");
 		String info = timestamp.getInfo();
