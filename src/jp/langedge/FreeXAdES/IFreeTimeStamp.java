@@ -65,6 +65,24 @@ public interface IFreeTimeStamp {
 	 */
 	public String getTimeStampDate(); 
 
+	/** タイムスタンプトークンのシリアル番号をバイナリで返す
+	 * タイムスタンプトークン中のシリアル番号を返す。
+	 * @return セット済みならシリアル番号を、未セットなら null を返す
+	 */
+	public byte[] getSerial();
+
+	/** タイムスタンプトークンのナンスをバイナリで返す
+	 * タイムスタンプトークン中のナンスを返す。
+	 * @return セット済みならナンスを、未セットなら null を返す
+	 */
+	public byte[] getNonce();
+
+	/** タイムスタンプトークンの対象ハッシュ値（messageImprint）のアルゴリズムを返す
+	 * タイムスタンプトークン中の対象ハッシュのアルゴリズムを返す。
+	 * @return セット済みならアルゴリズム名を、未セットなら null を返す
+	 */
+	public String getMsgImprintAlg();
+
 	/** タイムスタンプトークンの対象ハッシュ値（messageImprint）をバイナリで返す
 	 * タイムスタンプトークン中の対象ハッシュ値を返す。
 	 * @return セット済みならハッシュ値を、未セットなら null を返す

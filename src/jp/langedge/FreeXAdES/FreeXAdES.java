@@ -5,14 +5,14 @@
 package jp.langedge.FreeXAdES;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.util.*;
+import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.*;
-import java.security.cert.Certificate;	// 明示する為にインポート
+import java.security.cert.Certificate;		// 明示する為にインポート
+import java.security.cert.X509Certificate;	// 明示する為にインポート
 import java.text.SimpleDateFormat;
 
-import javax.security.cert.X509Certificate;
 import javax.xml.crypto.*;
 import javax.xml.crypto.dom.*;
 import javax.xml.crypto.dsig.*;
@@ -614,7 +614,9 @@ public class FreeXAdES implements IFreeXAdES {
 			// IssuerSerial
 			Element is = doc.createElementNS(XADES_V132, "IssuerSerial");
 			Element in = doc.createElementNS(XMLSignature.XMLNS, "X509IssuerName");
-			X509Certificate x509cert = X509Certificate.getInstance(certBin);
+			CertificateFactory cf = CertificateFactory.getInstance("X.509");
+			ByteArrayInputStream bais = new ByteArrayInputStream(certBin);
+			X509Certificate x509cert = (X509Certificate)cf.generateCertificate(bais);
 			String issuer = x509cert.getIssuerDN().getName();
 			Node issText = doc.createTextNode(issuer);
 			in.appendChild(issText);
@@ -627,10 +629,7 @@ public class FreeXAdES implements IFreeXAdES {
 			is.appendChild(sn);
 			ct.appendChild(is);
 			st.appendChild(ct);
-		} catch (javax.security.cert.CertificateException e) {
-			e.printStackTrace();
-			setLastError(FXERR_PKI_CERT);
-		} catch (CertificateEncodingException e) {
+		} catch (CertificateException e) {
 			e.printStackTrace();
 			setLastError(FXERR_PKI_CERT);
 		}
@@ -1023,7 +1022,7 @@ public class FreeXAdES implements IFreeXAdES {
 	public int getVerifyLevel()
 	{
 		return level_;
-	}	
+	}
 
     // ---------------------------------------------------------------------------
     // 検証用の鍵取得クラス（最もシンプルな実装）

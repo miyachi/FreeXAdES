@@ -4,11 +4,25 @@
 
 package jp.langedge.FreeXAdES;
 
+import java.io.*;
+import java.util.*;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
- * FreePKI : Crypto or PKI utility class.
+ * FreePKI : Crypto and PKI utility class.
  * @author miyachi
  *
  */
@@ -158,6 +172,35 @@ public class FreePKI {
 		return hex;	
 	}
 	
+	/** GENERALIZED_TIMEのW3C-DTF変更
+	 * GENERALIZED_TIMEをW3C-DTF化して返す、YYYY-MM-DDThh:mm:ss.sTZD
+	 * @param genTime GENERALIZED_TIMEを指定する
+	 * @return DTF文字列が返る
+	 */
+	public static String toDTF(String genTime)
+	{
+		String dtf = "";
+		if(genTime.length() >= 4)
+			dtf += genTime.substring(0, 4);
+		if(genTime.length() >= 6)
+			dtf += "-" + genTime.substring(4, 6);
+		if(genTime.length() >= 8)
+			dtf += "-" + genTime.substring(6, 8);
+		if(genTime.length() >= 10)
+			dtf += "T" + genTime.substring(8, 10);
+		if(genTime.length() >= 12)
+			dtf += ":" + genTime.substring(10, 12);
+		if(genTime.length() >= 14)
+			dtf += ":" + genTime.substring(12, 14);
+		if(genTime.length() >= 15)
+		{
+			if(!"Z".equals(genTime.substring(14, 15)))
+				dtf += ".";
+			dtf += genTime.substring(14);
+		}
+		return dtf;
+	}
+	
 	// ---------------------------------------------------------------------------
     // OID定義.
 	public interface OID {
@@ -230,6 +273,152 @@ public class FreePKI {
 	    public static final byte UNIVERSAL_STRING    = 0x1c;
 	    public static final byte BMP_STRING          = 0x1e;
 	    public static final byte UTF8_STRING         = 0x0c;
+	}
+
+	// ---------------------------------------------------------------------------
+	// PKIではCRL/OCSP/TimeStamp等の取得にてHTTP通信を利用する.
+
+	/** HTTP通信の実行
+	 * POST/GETによるHTTP通信を実行して結果を返す
+	 * @param url 必須：接続先を指定する
+	 * @param send 非nullならPOST通信用のバイト配列を指定する、nullならGET通信となる
+	 * @param contentType Content-Typeを指定する、POST通信時に指定
+	 * @param userid オプション：Basic認証用のユーザID、不要ならnullを指定する
+	 * @param passwd オプション：Basic認証用のパスワード、不要ならnullを指定する
+	 * @return HTTP通信に成功した場合にはサーバ応答バイナリが返る
+	 */
+	public static byte[] httpConnect (
+			String url,
+			byte[] send,
+			String contentType,
+			String userid,
+			String passwd
+			)
+	{
+		byte[] back = null;
+        InputStream in = null;
+        ByteArrayOutputStream tmp = null;
+
+        if(url == null)
+        	return back;
+
+        try
+		{
+			/* とりえあずHTTPSのトラスト確認はしない実装 */
+            // 証明書情報は全てnullを返す
+            TrustManager[] tm = { new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain,
+                        String authType) throws CertificateException {
+                }
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain,
+                        String authType) throws CertificateException {
+                }
+            } };
+            // SSL接続の初期化
+            SSLContext sslcontext = SSLContext.getInstance("SSL");
+            sslcontext.init(null, tm, null);
+            // ホスト名の検証ルールは何が来てもtrueを返す
+            HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+                @Override
+                public boolean verify(String hostname,
+                        SSLSession session) {
+                    return true;
+                }
+            });
+
+            // URL初期化
+            URL server = new URL(url);
+			HttpURLConnection connection = null;
+
+			try
+			{
+				// 通信準備
+				connection = (HttpURLConnection)server.openConnection();
+				// SSL設定
+				if(server.getProtocol().equals("https")) {
+					// SSL接続設定のセット
+					((HttpsURLConnection)connection).setSSLSocketFactory(sslcontext.getSocketFactory());
+				}
+				connection.setConnectTimeout(30*1000);		// 30秒でタイムアウト
+				connection.setUseCaches(false);				// キャッシュは使わない
+				connection.setRequestProperty("Connection", "Keep-Alive");
+				if(userid != null && passwd != null) {
+					// Basic認証設定
+					String token = userid + ":" + passwd;
+					String basic = Base64.getEncoder().encodeToString(token.getBytes());
+					connection.setRequestProperty("Authorization", "Basic " + basic);
+				}
+				if(send != null && send.length > 0)
+				{
+					// POST
+					connection.setRequestMethod("POST");
+					connection.setDoOutput(true);
+					if(contentType == null)
+						contentType = "text/plain";
+					connection.setRequestProperty("Content-Type", contentType);
+					// リクエストの書き込み
+					OutputStream os = new BufferedOutputStream(connection.getOutputStream());
+					os.write(send);
+	         		os.flush();
+				}
+				else
+				{
+					// GET
+					connection.setRequestMethod("GET");
+				}
+				
+				// 接続
+				connection.connect();
+
+				// 結果確認
+				if (connection.getResponseCode() == HttpURLConnection.HTTP_OK)
+				{
+					// 接続成功(応答の読み込み)
+					in = connection.getInputStream();
+					BufferedInputStream bis = new BufferedInputStream(in);
+					// 中間書き込みバッファ
+					tmp = new ByteArrayOutputStream();
+					BufferedOutputStream bos = new BufferedOutputStream(tmp);
+					int read = 0;
+					int bufSize = 10240;		// 1回の読み込みバッファサイズ
+					byte[] buffer = new byte[bufSize];
+					// 読み込みループ
+					while(true){
+						read = bis.read(buffer);
+						if(read==-1)
+							break;
+						bos.write(buffer, 0, read);
+					}
+					// 書き込みをフラッシュしてバイト配列取得
+					bos.flush();
+					back = tmp.toByteArray();
+				}
+				else
+				{
+					// 接続失敗
+		      	    System.out.println("http error: status = " + connection.getResponseCode());
+					back = null;
+				}
+			}
+			finally
+			{
+				if (tmp != null)
+					tmp.close();
+				if (in != null)
+					in.close();
+				if (connection != null)
+				    connection.disconnect();
+			}
+		} catch (Exception e) {
+       	    System.out.println(e);
+//	    	System.out.println("HTTP接続エラー");
+		}
+		return back;
 	}
 
 }

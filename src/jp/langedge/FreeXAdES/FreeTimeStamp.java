@@ -6,7 +6,6 @@ package jp.langedge.FreeXAdES;
 
 import java.io.*;
 import java.util.*;
-import java.net.*;
 
 import java.security.PublicKey;
 import java.security.Signature;
@@ -27,8 +26,11 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	private static final int NONCE_SIZE			= 8;	// ノンスサイズ
 
 	private byte[]	token_	= null;						// タイムスタンプトークン
+	private String	msgImprintAlg_ = null;				// タイムスタンプ対象ハッシュアルゴリズム
 	private byte[]	msgImprint_ = null;					// タイムスタンプ対象ハッシュ値
 	private String	timeStampDate_ = null;				// タイムスタンプ時刻
+	private byte[]	serial_ = null;						// タイムスタンプのシリアル番号
+	private byte[]	nonce_  = null;						// タイムスタンプのナンス
 
 	private X509Certificate			tsaCert_ = null;	// TSA(署名)証明書
 	private List<X509Certificate>	certs_   = null;	// 証明書群
@@ -59,8 +61,11 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	/* クリア */
 	private void clear() {
 		token_ = null;
+		msgImprintAlg_ = null;
 		msgImprint_ = null;
 		timeStampDate_ = null;
+		serial_ = null;
+		nonce_ = null;
 		tsaCert_ = null;
 		if(certs_ == null)
 			certs_ = new ArrayList<X509Certificate>();
@@ -89,7 +94,8 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			return FTERR_TS_REQ;
 
 		// タイムスタンプサーバ接続
-		byte[] resp = httpConnect(url, req, userid, passwd);
+		String contentType = "application/timestamp-query";
+		byte[] resp = FreePKI.httpConnect(url, req, contentType, userid, passwd);
 		if(resp == null)
 			return FTERR_TS_CONNECT;
 
@@ -102,6 +108,14 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 		int rc = setToken(token);
 		if(rc != FTERR_NO_ERROR)
 			return rc;
+
+		// ナンス値の確認
+		if(nonce_ != null)
+		{
+			// ナンスを返さないTSAがあるので解析結果にある場合のみチェック
+			if(!FreePKI.isEqual(nonce, nonce_))
+				return FTERR_TS_RES;
+		}
 
 		// ハッシュ値の確認
 		if(!FreePKI.isEqual(hash, msgImprint_))
@@ -154,6 +168,33 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 		return timeStampDate_;
 	}
 
+	/* タイムスタンプトークンのシリアル番号をバイナリで返す */
+	@Override
+	public byte[] getSerial()
+	{
+		if(empty())
+			return null;
+		return serial_;
+	}
+
+	/* タイムスタンプトークンのナンスをバイナリで返す */
+	@Override
+	public byte[] getNonce()
+	{
+		if(empty())
+			return null;
+		return nonce_;
+	}
+	
+	/* タイムスタンプトークンの対象ハッシュ値（messageImprint）のアルゴリズムを返す */
+	@Override
+	public String getMsgImprintAlg()
+	{
+		if(empty())
+			return null;
+		return msgImprintAlg_;
+	}
+
 	/* タイムスタンプトークンの対象ハッシュ値（messageImprint）をバイナリで返す */
 	@Override
 	public byte[] getMsgImprint()
@@ -195,20 +236,28 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 		}
 		if(timeStampDate_ != null)
 			info += "\n Date: " + timeStampDate_;
+		if(msgImprintAlg_ != null)
+			info += "\n HashAlg: " + msgImprintAlg_;
 		if(msgImprint_ != null)
 			info += "\n Hash: " + FreePKI.toHex(msgImprint_);
 		if(tsaCert_ != null)
 			info += "\n TSA: " + tsaCert_.getSubjectX500Principal().getName();
+		if(serial_ != null)
+			info += "\n Serial: " + FreePKI.toHex(serial_);
+		if(nonce_ != null)
+			info += "\n Nonce: " + FreePKI.toHex(nonce_);
 		return info;
 	}
 
 	/* タイムスタンプトークンをバイナリで返す */
+	@Override
 	public byte[] getToken()
 	{
 		return token_;
 	}
 
 	/* タイムスタンプトークンの署名を検証して結果を返す */
+	@Override
 	public int verify(byte[] hash)
 	{
 		if(!FreePKI.isEqual(hash, msgImprint_))
@@ -225,7 +274,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	 * @param nonce ナンス（乱数値）を指定（8バイト固定）
 	 * @return 生成したリクエスト情報（バイナリ形式）を返す
 	 */
-	private byte[] makeRequest (
+	public static byte[] makeRequest (
 			byte[] hash,			// 32/64 バイト
 			byte[] nonce			// 8 バイト
 			)
@@ -317,7 +366,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 	 * @param nonce ナンス（乱数値）を指定（8バイト）
 	 * @return OKなら取得したタイムスタンプトークン（バイナリ形式）を返す
 	 */
-	private byte[] parseResponse (
+	public static byte[] parseResponse (
 			byte[] res,
 			byte[] nonce			// 8 バイト
 			)
@@ -336,21 +385,21 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			ASN1_OBJ tsr, obj, obj2;
 			tsr = FreePKI.parseObj(res, 0);
 			if(tsr == null)
-				throw new Exception("TSResponse parse error");
+				throw new Exception("TimeStampResponse parse error");
 			if(tsr.tag_ != DERTag.SEQUENCE || tsr.construct_ != true)
-				throw new Exception("TSResponse format error 1");
+				throw new Exception("TimeStampResponse format error 1");
 			// TSResponseの解析
 			obj = FreePKI.parseObj(tsr.value_, 0);
 			if(obj == null)
-				throw new Exception("TSResponse format error 2");
+				throw new Exception("TimeStampResponse format error 2");
 			if(obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
-				throw new Exception("TSResponse format error 3");
+				throw new Exception("TimeStampResponse format error 3");
 			// statusの取得
 			obj2 = FreePKI.parseObj(obj.value_, 0);
 			if(obj2 == null)
-				throw new Exception("TSResponse format error 4");
+				throw new Exception("TimeStampResponse format error 4");
 			if(obj2.tag_ != DERTag.INTEGER)
-				throw new Exception("TSResponse format error 5");
+				throw new Exception("TimeStampResponse format error 5");
 			for( int j=obj2.len_-1; j>=0; j-- ) {
 				status |= (obj2.value_[j] & 0xff) << ( 8 * j );
 			}
@@ -360,7 +409,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			// 残りがタイムスタンプトークン
 			len = tsr.len_ - obj.pos_;
 			if( len <= 0 )
-				throw new Exception("format error 16");
+				throw new Exception("TimeStampResponse format error 6");
 			tst = new byte[len];
             System.arraycopy( tsr.value_, obj.pos_, tst, 0, len );	// TSTのコピー
 
@@ -382,42 +431,42 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			ASN1_OBJ tst, obj, obj2, obj3, obj4;
 			tst = FreePKI.parseObj(token, 0);
 			if(tst == null || tst.tag_ != DERTag.SEQUENCE || tst.construct_ != true)
-				throw new Exception("TimeStampToken format error 1");
+				throw new Exception("TimeStampToken parse error");
 			obj = FreePKI.parseObj(tst.value_, 0);
 			if(obj == null || obj.tag_ != DERTag.OBJECT_IDENTIFIER || !FreePKI.isOID(obj.value_, OID.SIGNED_DATA))
-				throw new Exception("TimeStampToken format error 2");
+				throw new Exception("TimeStampToken format error 1");
 			obj = FreePKI.parseObj(tst.value_, obj.pos_);
 			if(obj == null || obj.class_ != DERHead.CLS_CONTEXTSPECIFIC || obj.tag_ != 0 || obj.construct_ != true)
-				throw new Exception("TimeStampToken format error 3");
+				throw new Exception("TimeStampToken format error 2");
 			obj = FreePKI.parseObj(obj.value_, 0);
 			if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
-				throw new Exception("TimeStampToken format error 4");
+				throw new Exception("TimeStampToken format error 3");
 			obj2 = FreePKI.parseObj(obj.value_, 0);				// obj = version
 			if(obj2 == null || obj2.tag_ != DERTag.INTEGER || obj2.construct_ != false)
-				throw new Exception("TimeStampToken format error 5");
+				throw new Exception("TimeStampToken format error 4");
 			obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);		// obj = sign hash type
 			if(obj2 == null || obj2.tag_ != DERTag.SET || obj2.construct_ != true)
-				throw new Exception("TimeStampToken format error 6");
+				throw new Exception("TimeStampToken format error 5");
 			obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);		// obj = TSTinfo out
 			if(obj2 == null || obj2.tag_ != DERTag.SEQUENCE || obj2.construct_ != true)
-				throw new Exception("TimeStampToken format error 7");
+				throw new Exception("TimeStampToken format error 6");
 			obj3 = FreePKI.parseObj(obj2.value_, 0);			// obj = sign hash type
 			if(obj3 == null || obj3.tag_ != DERTag.OBJECT_IDENTIFIER || !FreePKI.isOID(obj3.value_, OID.TIMESTAMP_TOKEN))
-				throw new Exception("TimeStampToken format error 8");
+				throw new Exception("TimeStampToken format error 7");
 			obj3 = FreePKI.parseObj(obj2.value_, obj3.pos_);	// obj = TSTinfo
 			if(obj3 == null || obj3.class_ != DERHead.CLS_CONTEXTSPECIFIC || obj3.tag_ != 0 || obj3.construct_ != true)
-				throw new Exception("TimeStampToken format error 9");
+				throw new Exception("TimeStampToken format error 8");
 			obj4 = FreePKI.parseObj(obj3.value_, 0);			// obj = TSTinfo
 			if(obj4 == null ||obj4.tag_ != DERTag.OCTET_STRING || obj4.construct_ != false)
-				throw new Exception("TimeStampToken format error 10");
+				throw new Exception("TimeStampToken format error 9");
 			rc = parseTSTInfo(obj4.value_);
 			if(rc != FTERR_NO_ERROR)
 				return rc;
 			if(obj.value_.length <= obj2.pos_)
-				throw new Exception("TimeStampToken format error 11");
+				throw new Exception("TimeStampToken format error 10");
 			obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);		// obj = option cert or crl
 			if(obj2 == null || obj2.construct_ != true)
-				throw new Exception("TimeStampToken format error 12");
+				throw new Exception("TimeStampToken format error 11");
 			if(obj2.class_ == DERHead.CLS_CONTEXTSPECIFIC)
 			{
 				// cert or crl
@@ -430,7 +479,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 						boolean body = true;	// body = true により値では無く全体を取得
 						obj3 = FreePKI.parseObj(obj2.value_, obj3.pos_, body);
 						if(obj3 == null || obj3.tag_ != DERTag.SEQUENCE || obj3.construct_ != true)
-							throw new Exception("TimeStampToken format error 13");
+							throw new Exception("TimeStampToken cert error");
 						X509Certificate cert = null;
 						try {
 							CertificateFactory cf = CertificateFactory.getInstance("X.509");
@@ -444,20 +493,20 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 						}
 					}
 					if(obj.value_.length <= obj2.pos_)
-						throw new Exception("TimeStampToken format error 14");
+						throw new Exception("TimeStampToken format error 12");
 					obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);				
 				}
 				if(obj2.class_ == DERHead.CLS_CONTEXTSPECIFIC && obj2.tag_ == 1)
 				{
 					// crl(現在未サポート)
 					if(obj.value_.length <= obj2.pos_)
-						throw new Exception("TimeStampToken format error 15");
+						throw new Exception("TimeStampToken format error 13");
 					obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);				
 				}
 			}
 			// signer info
 			if(obj2 == null || obj2.tag_ != DERTag.SET || obj2.construct_ != true)
-				throw new Exception("TimeStampToken format error 16");
+				throw new Exception("TimeStampToken format error 14");
 			rc = parseSignerInfo(obj2.value_);
 
 		} catch (Exception e) {
@@ -477,44 +526,81 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			return FTERR_INVALID_TSTINFO;
 
 		tstInfo_ = null;
+		serial_ = null;
+		nonce_ = null;
+		msgImprintAlg_ = null;
+		msgImprint_ = null;
 		try {
 			ASN1_OBJ tstinfo, obj, obj2, obj3;
 			tstinfo = FreePKI.parseObj(info, 0);
 			if(tstinfo == null || tstinfo.tag_ != DERTag.SEQUENCE || tstinfo.construct_ != true)
-				throw new Exception("TSTInfo format error 1");
+				throw new Exception("TSTInfo parse error");
 			// version
 			obj = FreePKI.parseObj(tstinfo.value_, 0);
 			if(obj == null || obj.tag_ != DERTag.INTEGER || obj.construct_ != false)
-				throw new Exception("TSTInfo format error 2");
+				throw new Exception("TSTInfo format error 1");
 			// policy
 			obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.OBJECT_IDENTIFIER || obj.construct_ != false)
-				throw new Exception("TSTInfo format error 3");
+				throw new Exception("TSTInfo format error 2");
 			// messageImprint info
 			obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
-				throw new Exception("TSTInfo format error 4");
+				throw new Exception("TSTInfo format error 3");
 			// hash algorithm
 			obj2 = FreePKI.parseObj(obj.value_, 0);
 			if(obj2 == null || obj2.tag_ != DERTag.SEQUENCE || obj2.construct_ != true)
-				throw new Exception("TSTInfo format error 5");
+				throw new Exception("TSTInfo format error 4");
 			obj3 = FreePKI.parseObj(obj2.value_, 0);	// hash alg OID
 			if(obj3 == null || obj3.tag_ != DERTag.OBJECT_IDENTIFIER || obj3.construct_ != false)
-				throw new Exception("TSTInfo format error 6");
+				throw new Exception("TSTInfo format error 5");
+			if(FreePKI.isOID(obj3.value_, OID.SHA_256)) {
+				msgImprintAlg_ = "SHA-256";
+			} else if(FreePKI.isOID(obj2.value_, OID.SHA_384)) {
+				msgImprintAlg_ = "SHA-384";
+			} else if(FreePKI.isOID(obj2.value_, OID.SHA_512)) {
+				msgImprintAlg_ = "SHA-512";
+			} else if(FreePKI.isOID(obj2.value_, OID.SHA_1)) {
+				msgImprintAlg_ = "SHA-1";
+			} else {
+				msgImprintAlg_ = "unknown";				
+			}
 			// messageImprint
 			obj2 = FreePKI.parseObj(obj.value_, obj2.pos_);
 			if(obj2 == null || obj2.tag_ != DERTag.OCTET_STRING || obj2.construct_ != false)
-				throw new Exception("TSTInfo format error 7");
+				throw new Exception("TSTInfo format error 6");
 			msgImprint_ = obj2.value_;
 			// serialNumber
 			obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.INTEGER || obj.construct_ != false)
-				throw new Exception("TSTInfo format error 8");
+				throw new Exception("TSTInfo format error 7");
+			serial_ = obj.value_;
 			// genTime
 			obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.GENERALIZED_TIME || obj.construct_ != false)
-				throw new Exception("TSTInfo format error 9");
-			timeStampDate_ = new String(obj.value_);
+				throw new Exception("TSTInfo format error 8");
+			timeStampDate_ = FreePKI.toDTF(new String(obj.value_));
+			// オプション部解析
+			obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
+			if(obj == null)
+				return rc;
+			if(obj.tag_ == DERTag.SEQUENCE)
+			{
+				// Accuracy (skip)
+				obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
+				if(obj == null)
+					return rc;				
+			}
+			if(obj.tag_ == DERTag.BOOLEAN)
+			{
+				// Ordering (skip)
+				obj = FreePKI.parseObj(tstinfo.value_, obj.pos_);
+				if(obj == null)
+					return rc;				
+			}
+			// nonceのはず
+			if(obj.tag_ == DERTag.INTEGER)
+				nonce_ = obj.value_;
 			// 以下解析は省略
 		} catch (Exception e) {
        	    System.out.println(e);
@@ -544,22 +630,22 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			ASN1_OBJ signerinfo, obj, obj2;
 			signerinfo = FreePKI.parseObj(info, 0);
 			if(signerinfo == null || signerinfo.tag_ != DERTag.SEQUENCE || signerinfo.construct_ != true)
-				throw new Exception("SignerInfo format error 1");
+				throw new Exception("SignerInfo parse error");
 			// version
 			obj = FreePKI.parseObj(signerinfo.value_, 0);
 			if(obj == null || obj.tag_ != DERTag.INTEGER || obj.construct_ != false)
-				throw new Exception("SignerInfo format error 2");
+				throw new Exception("SignerInfo format error 1");
 			// sid
 			obj = FreePKI.parseObj(signerinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
-				throw new Exception("SignerInfo format error 3");
+				throw new Exception("SignerInfo format error 2");
 			// digestAlgorithm
 			obj = FreePKI.parseObj(signerinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
-				throw new Exception("SignerInfo format error 4");
+				throw new Exception("SignerInfo format error 3");
 			obj2 = FreePKI.parseObj(obj.value_, 0);	// hash alg OID
 			if(obj2 == null || obj2.tag_ != DERTag.OBJECT_IDENTIFIER || obj2.construct_ != false)
-				throw new Exception("SignerInfo format error 5");
+				throw new Exception("SignerInfo format error 4");
 			// 署名アルゴリズム
 			if(FreePKI.isOID(obj2.value_, OID.SHA_256)) {
 				hashAlg_ = "SHA-256";
@@ -578,7 +664,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			// signedAttrs check
 			obj = FreePKI.parseObj(signerinfo.value_, obj.pos_, true);
 			if(obj == null || obj.construct_ != true)
-				throw new Exception("SignerInfo format error 6");
+				throw new Exception("SignerInfo format error 5");
 			if(obj.class_ == DERHead.CLS_CONTEXTSPECIFIC || obj.tag_ == 0)
 			{
 				// 署名対象
@@ -593,14 +679,14 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			}
 			// signatureAlgorithm
 			if(obj == null || obj.tag_ != DERTag.SEQUENCE || obj.construct_ != true)
-				throw new Exception("SignerInfo format error 7");
+				throw new Exception("SignerInfo format error 6");
 			obj2 = FreePKI.parseObj(obj.value_, 0);	// sign alg OID
 			if(obj2 == null || obj2.tag_ != DERTag.OBJECT_IDENTIFIER || !FreePKI.isOID(obj2.value_, OID.RSA_ENC) || obj2.construct_ != false)
-				throw new Exception("SignerInfo format error 8");
+				throw new Exception("SignerInfo format error 7");
 			// signature
 			obj = FreePKI.parseObj(signerinfo.value_, obj.pos_);
 			if(obj == null || obj.tag_ != DERTag.OCTET_STRING || obj.construct_ != false)
-				throw new Exception("SignerInfo format error 9");
+				throw new Exception("SignerInfo format error 8");
 			signature_ = obj.value_;
 			// 以下解析は省略
 		} catch (Exception e) {
@@ -651,7 +737,7 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 			ASN1_OBJ signatrb, obj, obj2, obj3;
 			signatrb = FreePKI.parseObj(atrb, 0);
 			if(signatrb == null || signatrb.tag_ != DERTag.SET || signatrb.construct_ != true)
-				throw new Exception("SignedAtrb format error 1");
+				throw new Exception("SignedAtrb parse error");
 			obj = new ASN1_OBJ();
 			obj.pos_ = 0;
 			while(obj.pos_ < signatrb.value_.length)
@@ -685,69 +771,6 @@ public class FreeTimeStamp implements IFreeTimeStamp {
 				rc = FTERR_TSTINFO_DIGEST;
 		}
 		return rc;
-	}
-
-    // ---------------------------------------------------------------------------
-    // HTTP通信.
-	private byte[] httpConnect (
-			String url,
-			byte[] send,
-			String userid,
-			String passwd
-			)
-	{
-		byte[] back = null;
-
-		try
-		{
-
-			URL server = new URL(url);
-			HttpURLConnection connection = null;
-
-			try
-			{
-				// 通信準備
-				connection = (HttpURLConnection) server.openConnection();
-				connection.setRequestMethod("POST");
-				connection.setDoOutput(true);
-				connection.setRequestProperty("Content-Type", "application/timestamp-query");
-				connection.setUseCaches(false);
-
-				// タイムスタンプリクエストの書き込み
-				OutputStream os = new BufferedOutputStream(connection.getOutputStream());
-				os.write(send);
-         		os.flush();
-
-				if (connection.getResponseCode() == HttpURLConnection.HTTP_OK)
-				{
-					BufferedInputStream bis = new BufferedInputStream(connection.getInputStream());
-					int nBufSize = 1024 * 100;		// とりあえずタイムスタンプ応答は100KB未満とする
-					byte[] buf = new byte[nBufSize];
-					int len = bis.read(buf);
-					bis.close();
-					if(len <= 0)
-					{
-	    				System.out.println("HTTP応答エラー");
-					}
-					else
-					{
-						// 成功したのでタイムスタンプレスポンスが返っているはず
-						back = Arrays.copyOf(buf, len);
-					}
-				}
-			}
-			finally
-			{
-				if (connection != null)
-				{
-				    connection.disconnect();
-				}
-			}
-		} catch (Exception e) {
-       	    System.out.println(e);
-	    	System.out.println("HTTP接続エラー");
-		}
-		return back;
 	}
 
 	// ---------------------------------------------------------------------------

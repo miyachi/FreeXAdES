@@ -61,13 +61,19 @@ public class IFreeXAdESTest {
 	 *	http://eswg.jnsa.org/sandbox/freeca/
 	 */
 
+	// 署名用設定
     private static String pkcs12File_ = "signer.p12";		// PKCS#12ファイル
     private static String pkcs12Pswd_ = "test1";			// PKCS#12パスワード
+
+    // タイムスタンプ用設定
+    private static String tsUrl_ = "http://eswg.jnsa.org/freetsa";	// TSAサーバ
+	private static String tsUserid_ = null;		// オプション：TSAサーバBasic認証用ユーザID
+	private static String tsPasswd_ = null;		// オプション：TSAサーバBasic認証用パスワード
 
     //////////////////////////////////////////////////////////////////////////////
 
 	/* XAdES試験 */
-//	@Test
+	@Test
 	public void testFreeXAdES() {
 		testDetachedOut();
 		testDetachedIn();
@@ -418,8 +424,7 @@ public class IFreeXAdESTest {
 
 		// ES-Tの追加
 		System.out.println(" - add ES-T.");
-		String tsUrl = "http://eswg.jnsa.org/freetsa";
-		rc = xades.addEsT(tsUrl, null, null, "ES-T-test", null);
+		rc = xades.addEsT(tsUrl_, tsUserid_, tsPasswd_, "ES-T-test", null);
 		assertEquals(rc, IFreeXAdES.FXERR_NO_ERROR);
 
 		// 保存
@@ -461,10 +466,7 @@ public class IFreeXAdESTest {
 		
 		// タイムスタンプの取得
 		System.out.println(" - get TimeStamp.");
-		String tsUrl = "http://eswg.jnsa.org/freetsa";
-		String tsUserid = null;
-		String tsPasswd = null;
-		rc = timestamp.getFromServer(hash, tsUrl, tsUserid, tsPasswd);
+		rc = timestamp.getFromServer(hash, tsUrl_, tsUserid_, tsPasswd_);
 		assertEquals(rc, IFreeTimeStamp.FTERR_NO_ERROR);
 
 		// 表示
