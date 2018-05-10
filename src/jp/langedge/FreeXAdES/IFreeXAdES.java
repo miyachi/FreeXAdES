@@ -241,10 +241,10 @@ public interface IFreeXAdES {
 	/** 署名タイムスタンプを追加する
 	 * 指定されたURLにより署名タイムスタンプを取得しXAdES-Tを生成する。
 	 * @param tsUrl タイムスタンプサービス/サーバーの指定
-	 * @param bUser Basic認証用のユーザーIDの指定（不要ならNULL） ※ 現在未サポート
-	 * @param bPswd Basic認証用のパスワードの指定（不要ならNULL） ※ 現在未サポート
+	 * @param bUser Basic認証用のユーザーIDの指定（不要ならNULL）
+	 * @param bPswd Basic認証用のパスワードの指定（不要ならNULL）
 	 * @param id SignatureTimeStamp要素に付けるIdの指定（nullにて省略可能）
-	 * @param xpath 検証対象となるSignature要素をXPathで指定（署名が1つだけならnullにて省略可能）
+	 * @param xpath 対象となるSignature要素をXPathで指定（署名が1つだけならnullにて省略可能）
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
