@@ -785,7 +785,8 @@ public class FreeXAdES implements IFreeXAdES {
 		ets.setPrefix("");
 		sts.appendChild(ets);
 
-		String b64 = Base64.getMimeEncoder().encodeToString(tst);
+//		String b64 = Base64.getEncoder().encodeToString(tst);
+		String b64 = Base64.getMimeEncoder(77, "\n".getBytes()).encodeToString(tst);	// 
 		Node tstText = signDoc_.createTextNode(b64);
 		ets.appendChild(tstText);
 
