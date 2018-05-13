@@ -166,6 +166,7 @@ public interface IFreeXAdES {
 
 	/** 署名済みXMLをファイル保存する
 	 * 署名済みXMLを指定されたファイルパスにUTF-8形式で書き込む
+	 * @param path 保存するファイルパスを指定
 	 * @return エラーなし FXERR_NO_ERROR が返る
 	 * @return エラーあり FXERR_NO_ERROR 以外が返る（エラー値が返る）
 	 */
