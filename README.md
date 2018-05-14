@@ -57,7 +57,8 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
   > cd test
   > FxSample.bat
  Linux:
-  > cd test
-  > ./FxSample.sh
+  $ cd test
+  $ chmod +x *.sh
+  $ ./FxSample.sh
 
 end.
