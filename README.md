@@ -9,7 +9,7 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
 
 # Import and Run from GitHub:
  Menu:<br/>
-  [File]-[Import]<br/>
+  [File]-[Import...]<br/>
  Select:<br/>
   [Git]-[Projects from Git]<br/>
   click [Next>]<br/>
@@ -54,9 +54,8 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
 
 # Run Sample (Not NEED Eclipse Env)
  Windows:<br/>
-  > cd test<br/>
-  > FxSample.bat<br/>
-
+  CMD> cd test<br/>
+  CMD> FxSample.bat<br/>
  Linux:<br/>
   $ cd test<br/>
   $ chmod +x *.sh<br/>
