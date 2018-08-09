@@ -2,63 +2,63 @@
 FreeXAdES is a simple implementation of XAdES for long-term signature introductory / study. FreeXAdES can be executed only with the Java standard library.
 
 # Requirement:
- Eclipse IDE for Java Developers.
- VersionFMars or after (ex:Oxygen)
- JavaFJava8 or after
- OtherFJUnit4 (eclipse standard library)
+ Eclipse IDE for Java Developers.<br/>
+ Version Mars or after (ex:Oxygen)<br/>
+ Java Java8 or after<br/>
+ Other JUnit4 (eclipse standard library)<br/>
 
 # Import and Run from GitHub:
  Menu:<br/>
-  [File]-[Importc]
- Select:
-  [Git]-[Projects from Git]
-  click [Next>]
- Select:
-  [Clone URI]
-  click [Next>]
- URI:
-  "https://github.com/miyachi/FreeXAdES"
-  click [Next>]
- Branch Selection:
-  click [Next>]
- Directory:
-  "C:\Users\($NAME)\workspace\FreeXAdES"
-  click [Next>]
-  *NOTE.1 The setting path of Directory should be FreeXAdES under the workspace.
- Select:
-  [Import using the New Project wizard]
-  click [Next>]
- Wizards:
-  [Java]-[Java Project]
-  click [Next>]
- Poject name:
-  "FreeXAdES"
-  click [Next>]
-  *NOTE.2 Location path is the same as "C:\Users\($NAME)\workspace\FreeXAdES" in *NOTE.1.
- Libraries:
-  click [Add Library]
- Add Library:
-  select [JUnit]
-  click [Next>]
- JUnit Library version:
-  select [JUnit 4]
-  click [Finish]
- Java Setting:
-  click [Finish]
+  [File]-[Import]<br/>
+ Select:<br/>
+  [Git]-[Projects from Git]<br/>
+  click [Next>]<br/>
+ Select:<br/>
+  [Clone URI]<br/>
+  click [Next>]<br/>
+ URI:<br/>
+  "https://github.com/miyachi/FreeXAdES"<br/>
+  click [Next>]<br/>
+ Branch Selection:<br/>
+  click [Next>]<br/>
+ Directory:<br/>
+  "C:\Users\($NAME)\workspace\FreeXAdES"<br/>
+  click [Next>]<br/>
+  *NOTE.1 The setting path of Directory should be FreeXAdES under the workspace.<br/>
+ Select:<br/>
+  [Import using the New Project wizard]<br/>
+  click [Next>]<br/>
+ Wizards:<br/>
+  [Java]-[Java Project]<br/>
+  click [Next>]<br/>
+ Poject name:<br/>
+  "FreeXAdES"<br/>
+  click [Next>]<br/>
+  *NOTE.2 Location path is the same as "C:\Users\($NAME)\workspace\FreeXAdES" in *NOTE.1.<br/>
+ Libraries:<br/>
+  click [Add Library]<br/>
+ Add Library:<br/>
+  select [JUnit]<br/>
+  click [Next>]<br/>
+ JUnit Library version:<br/>
+  select [JUnit 4]<br/>
+  click [Finish]<br/>
+ Java Setting:<br/>
+  click [Finish]<br/>
 
 # Run JUnit
- Open:
-  FreeXAdeS/src/jp/langedge/FreeXAdES/IFreeXAdESTest.java
- Menu:
-  [Run]-[Run]
+ Open:<br/>
+  FreeXAdeS/src/jp/langedge/FreeXAdES/IFreeXAdESTest.java<br/>
+ Menu:<br/>
+  [Run]-[Run]<br/>
 
 # Run Sample (Not NEED Eclipse Env)
- Windows:
-  > cd test
-  > FxSample.bat
- Linux:
-  $ cd test
-  $ chmod +x *.sh
-  $ ./FxSample.sh
+ Windows:<br/>
+  > cd test<br/>
+  > FxSample.bat<br/>
+ Linux:<br/>
+  $ cd test<br/>
+  $ chmod +x *.sh<br/>
+  $ ./FxSample.sh<br/>
 
 end.
