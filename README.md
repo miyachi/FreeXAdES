@@ -3,9 +3,9 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
 
 # Requirement:
  Eclipse IDE for Java Developers.<br/>
- Version Mars or after (ex:Oxygen)<br/>
- Java Java8 or after<br/>
- Other JUnit4 (eclipse standard library)<br/>
+  Version: Mars or after (ex:Oxygen)<br/>
+  Java: Java8 or after<br/>
+  Other: JUnit4 (eclipse standard library)<br/>
 
 # Import and Run from GitHub:
  Menu:<br/>
@@ -56,6 +56,7 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
  Windows:<br/>
   > cd test<br/>
   > FxSample.bat<br/>
+
  Linux:<br/>
   $ cd test<br/>
   $ chmod +x *.sh<br/>
