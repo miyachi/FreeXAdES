@@ -62,7 +62,7 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
   $ ./FxSample.sh<br/>
 
 # Document (Japanese)
-  http://eswg.jnsa.org/matsuri/201605/20160523-S4-miyachi.pdf
-  http://eswg.jnsa.org/matsuri/201805/20180523-L2-miyachi.pdf
+  http://eswg.jnsa.org/matsuri/201605/20160523-S4-miyachi.pdf<br/>
+  http://eswg.jnsa.org/matsuri/201805/20180523-L2-miyachi.pdf<br/>
 
 end.
