@@ -3,13 +3,13 @@ FreeXAdES is a simple implementation of XAdES for long-term signature introducto
 
 # Requirement:
  Eclipse IDE for Java Developers.
- Version：Mars or after (ex:Oxygen)
- Java：Java8 or after
- Other：JUnit4 (eclipse standard library)
+ Versionﾂ：Mars or after (ex:Oxygen)
+ Javaﾂ：Java8 or after
+ Otherﾂ：JUnit4 (eclipse standard library)
 
 # Import and Run from GitHub:
- Menu:
-  [File]-[Import…]
+ Menu:<br/>
+  [File]-[Importﾂ…]
  Select:
   [Git]-[Projects from Git]
   click [Next>]
